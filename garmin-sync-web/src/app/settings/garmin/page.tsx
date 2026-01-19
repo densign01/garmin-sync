@@ -17,6 +17,7 @@ export default function GarminConnectPage() {
   const [connected, setConnected] = useState(false)
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null)
   const [checkingStatus, setCheckingStatus] = useState(true)
+  const [disconnecting, setDisconnecting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -48,6 +49,30 @@ export default function GarminConnectPage() {
       console.error('Failed to check status:', err)
     } finally {
       setCheckingStatus(false)
+    }
+  }
+
+  async function handleDisconnect() {
+    setDisconnecting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch('/api/garmin/disconnect', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (res.ok) {
+        setConnected(false)
+        setConnectedEmail(null)
+      }
+    } catch (err) {
+      console.error('Failed to disconnect:', err)
+    } finally {
+      setDisconnecting(false)
     }
   }
 
@@ -117,6 +142,14 @@ export default function GarminConnectPage() {
             </p>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+            >
+              {disconnecting ? 'Disconnecting…' : 'Disconnect Garmin'}
+            </Button>
             <Link href="/dashboard" className="w-full">
               <Button variant="outline" className="w-full">
                 Back to Dashboard
