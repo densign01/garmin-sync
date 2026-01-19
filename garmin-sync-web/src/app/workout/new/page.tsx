@@ -471,41 +471,60 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
   let stepOrder = 1
 
   for (const ex of parsed.exercises) {
-    // Use distance condition for distance-based exercises (farmer's walk, etc.)
+    // Distance-based exercises (farmer's walk, etc.) use Lap Button instead of distance
+    // Garmin's strength mode doesn't support distance as end condition - use manual lap press
     const isDistanceBased = ex.distance_meters && ex.distance_meters > 0
+
+    // Custom exercises use "OTHER" with the real name in description
+    const isCustomExercise = ex.garmin_name === 'OTHER' || !ex.garmin_name
+
+    // Build description: include custom name and/or distance target
+    let description = ''
+    if (isCustomExercise && ex.name) {
+      description = ex.name
+    }
+    if (isDistanceBased) {
+      const yards = Math.round((ex.distance_meters || 0) * 1.094)
+      description = description ? `${description} - ${yards} yds` : `${yards} yds`
+    }
 
     const exerciseStep = {
       type: 'ExecutableStepDTO',
-      stepOrder: stepOrder + 1,
-      stepType: { stepTypeId: 3, stepTypeKey: 'interval' },
+      stepOrder: Number(stepOrder + 1),
+      stepType: { stepTypeId: Number(3), stepTypeKey: 'interval' },
+      // Distance exercises: use Lap Button (7) - user presses lap when done
+      // Reps exercises: use reps (10)
       endCondition: isDistanceBased
-        ? { conditionTypeId: 3, conditionTypeKey: 'distance' }
-        : { conditionTypeId: 10, conditionTypeKey: 'reps' },
-      endConditionValue: isDistanceBased ? ex.distance_meters : ex.reps,
-      targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target' },
+        ? { conditionTypeId: Number(7), conditionTypeKey: 'lap.button' }
+        : { conditionTypeId: Number(10), conditionTypeKey: 'reps' },
+      // For lap button, no value needed; for reps, use rep count
+      ...(isDistanceBased ? {} : { endConditionValue: Number(ex.reps) }),
+      targetType: { workoutTargetTypeId: Number(1), workoutTargetTypeKey: 'no.target' },
       category: ex.category || 'OTHER',
       exerciseName: ex.garmin_name || 'OTHER',
-      weightUnit: { unitId: 9, unitKey: 'pound', factor: 453.59237 },
-      ...(ex.weight_lbs && { weightValue: ex.weight_lbs }),
-      strokeType: { strokeTypeId: 0 },
-      equipmentType: { equipmentTypeId: 0 },
+      // Description shows custom exercise name and/or distance target
+      ...(description && { description }),
+      weightUnit: { unitId: Number(9), unitKey: 'pound', factor: 453.59237 },
+      ...(ex.weight_lbs && { weightValue: Number(ex.weight_lbs) }),
+      strokeType: { strokeTypeId: Number(0) },
+      equipmentType: { equipmentTypeId: Number(0) },
     }
 
     const restStep = {
       type: 'ExecutableStepDTO',
-      stepOrder: stepOrder + 2,
-      stepType: { stepTypeId: 5, stepTypeKey: 'rest' },
-      endCondition: { conditionTypeId: 2, conditionTypeKey: 'time' },
-      endConditionValue: ex.rest_seconds || 90,
-      strokeType: { strokeTypeId: 0 },
-      equipmentType: { equipmentTypeId: 0 },
+      stepOrder: Number(stepOrder + 2),
+      stepType: { stepTypeId: Number(5), stepTypeKey: 'rest' },
+      endCondition: { conditionTypeId: Number(2), conditionTypeKey: 'time' },
+      endConditionValue: Number(ex.rest_seconds || 90),
+      strokeType: { strokeTypeId: Number(0) },
+      equipmentType: { equipmentTypeId: Number(0) },
     }
 
     steps.push({
       type: 'RepeatGroupDTO',
-      stepOrder: stepOrder,
-      stepType: { stepTypeId: 6, stepTypeKey: 'repeat' },
-      numberOfIterations: ex.sets,
+      stepOrder: Number(stepOrder),
+      stepType: { stepTypeId: Number(6), stepTypeKey: 'repeat' },
+      numberOfIterations: Number(ex.sets),
       smartRepeat: false,
       workoutSteps: [exerciseStep, restStep],
     })
@@ -515,11 +534,11 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
 
   return {
     workoutName: parsed.name,
-    sportType: { sportTypeId: 5, sportTypeKey: 'strength_training' },
+    sportType: { sportTypeId: Number(5), sportTypeKey: 'strength_training' },
     workoutSegments: [
       {
-        segmentOrder: 1,
-        sportType: { sportTypeId: 5, sportTypeKey: 'strength_training' },
+        segmentOrder: Number(1),
+        sportType: { sportTypeId: Number(5), sportTypeKey: 'strength_training' },
         workoutSteps: steps,
       },
     ],
