@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -63,6 +63,14 @@ const UNILATERAL_EXERCISES = [
 type UnilateralMode = 'double_sets' | 'double_reps'
 
 export default function NewWorkoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <NewWorkoutContent />
+    </Suspense>
+  )
+}
+
+function NewWorkoutContent() {
   const [rawText, setRawText] = useState('')
   const [parsed, setParsed] = useState<ParsedWorkout | null>(null)
   const [loading, setLoading] = useState(false)
