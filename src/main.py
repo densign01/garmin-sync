@@ -1,7 +1,9 @@
 """FastAPI app for Garmin workout sync."""
 import os
+import base64
 from pathlib import Path
 
+import garth
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,8 @@ from .schemas import (
 )
 
 load_dotenv()
+
+ENCRYPTION_KEY = os.environ.get("GARMIN_ENCRYPTION_KEY", "default-key")
 
 app = FastAPI(title="Garmin Sync", description="Sync strength workouts with Garmin Connect")
 
@@ -39,6 +43,17 @@ class AuthStatus(BaseModel):
     authenticated: bool
 
 
+class LoginResponse(BaseModel):
+    authenticated: bool
+    tokens_encrypted: str | None = None
+
+
+def encrypt_tokens(tokens_str: str) -> str:
+    """Encrypt tokens for storage."""
+    combined = f"{ENCRYPTION_KEY[:8]}:{tokens_str}"
+    return base64.b64encode(combined.encode()).decode()
+
+
 @app.get("/")
 async def root():
     """Serve the frontend."""
@@ -56,12 +71,16 @@ async def auth_status() -> AuthStatus:
 
 
 @app.post("/api/auth/login")
-async def login(request: LoginRequest) -> AuthStatus:
-    """Login to Garmin Connect."""
-    success = garmin_client.login(request.email, request.password)
-    if not success:
-        raise HTTPException(status_code=401, detail="Login failed")
-    return AuthStatus(authenticated=True)
+async def login(request: LoginRequest) -> LoginResponse:
+    """Login to Garmin Connect and return encrypted tokens."""
+    try:
+        garth.login(request.email, request.password)
+        tokens_str = garth.client.dumps()
+        encrypted = encrypt_tokens(tokens_str)
+        garmin_client._authenticated = True
+        return LoginResponse(authenticated=True, tokens_encrypted=encrypted)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Login failed: {str(e)}")
 
 
 @app.get("/api/exercises")
