@@ -11,6 +11,7 @@ type ParsedExercise = {
   rest_seconds: number
   category?: string
   garmin_name?: string
+  distance_meters?: number
 }
 
 type ParsedWorkout = {
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
         reps: ex.reps,
         rest_seconds: ex.rest_seconds || 90,
         weight_lbs: ex.weight_lbs || null,
+        distance_meters: ex.distance_meters || null,
       })),
     }
 

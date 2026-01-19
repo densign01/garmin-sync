@@ -11,6 +11,7 @@ class ExerciseInput(BaseModel):
     reps: int = 10
     rest_seconds: int = 60
     weight_lbs: float | None = None  # Optional preset weight
+    distance_meters: float | None = None  # For distance-based exercises (farmer's carry)
 
 
 class WorkoutInput(BaseModel):
@@ -61,33 +62,63 @@ def build_workout_json(workout: WorkoutInput) -> dict[str, Any]:
         }
         step_order += 1
 
-        # Exercise step
-        exercise_step = {
-            "type": "ExecutableStepDTO",
-            "stepOrder": step_order,
-            "stepType": {
-                "stepTypeId": 3,
-                "stepTypeKey": "interval",
-            },
-            "endCondition": {
-                "conditionTypeId": 10,
-                "conditionTypeKey": "reps",
-            },
-            "endConditionValue": float(exercise.reps),
-            "targetType": {
-                "workoutTargetTypeId": 1,
-                "workoutTargetTypeKey": "no.target",
-            },
-            "category": exercise.category,
-            "exerciseName": exercise.exercise_name,
-            "strokeType": {"strokeTypeId": 0},
-            "equipmentType": {"equipmentTypeId": 0},
-            "weightUnit": {
-                "unitId": 9,
-                "unitKey": "pound",
-                "factor": 453.59237,
-            },
-        }
+        # Exercise step - use distance for distance-based exercises, reps otherwise
+        if exercise.distance_meters:
+            # Distance-based exercise (farmer's carry, etc.)
+            exercise_step = {
+                "type": "ExecutableStepDTO",
+                "stepOrder": step_order,
+                "stepType": {
+                    "stepTypeId": 3,
+                    "stepTypeKey": "interval",
+                },
+                "endCondition": {
+                    "conditionTypeId": 3,
+                    "conditionTypeKey": "distance",
+                },
+                "endConditionValue": float(exercise.distance_meters),
+                "targetType": {
+                    "workoutTargetTypeId": 1,
+                    "workoutTargetTypeKey": "no.target",
+                },
+                "category": exercise.category,
+                "exerciseName": exercise.exercise_name,
+                "strokeType": {"strokeTypeId": 0},
+                "equipmentType": {"equipmentTypeId": 0},
+                "weightUnit": {
+                    "unitId": 9,
+                    "unitKey": "pound",
+                    "factor": 453.59237,
+                },
+            }
+        else:
+            # Reps-based exercise (standard)
+            exercise_step = {
+                "type": "ExecutableStepDTO",
+                "stepOrder": step_order,
+                "stepType": {
+                    "stepTypeId": 3,
+                    "stepTypeKey": "interval",
+                },
+                "endCondition": {
+                    "conditionTypeId": 10,
+                    "conditionTypeKey": "reps",
+                },
+                "endConditionValue": float(exercise.reps),
+                "targetType": {
+                    "workoutTargetTypeId": 1,
+                    "workoutTargetTypeKey": "no.target",
+                },
+                "category": exercise.category,
+                "exerciseName": exercise.exercise_name,
+                "strokeType": {"strokeTypeId": 0},
+                "equipmentType": {"equipmentTypeId": 0},
+                "weightUnit": {
+                    "unitId": 9,
+                    "unitKey": "pound",
+                    "factor": 453.59237,
+                },
+            }
 
         if exercise.weight_lbs:
             exercise_step["weightValue"] = exercise.weight_lbs

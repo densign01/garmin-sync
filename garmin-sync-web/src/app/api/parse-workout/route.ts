@@ -67,7 +67,24 @@ const EXERCISE_CATEGORIES: Record<string, [string, string]> = {
   'dip': ['TRICEPS_EXTENSION', 'DIPS'],
   'dips': ['TRICEPS_EXTENSION', 'DIPS'],
   'hip thrust': ['HIP_RAISE', 'BARBELL_HIP_THRUST'],
+  // Core exercises
+  'bird dog': ['CORE', 'BIRD_DOG'],
+  'bird dogs': ['CORE', 'BIRD_DOG'],
+  'dead bug': ['CORE', 'DEAD_BUG'],
+  'dead bugs': ['CORE', 'DEAD_BUG'],
+  'russian twist': ['CORE', 'RUSSIAN_TWIST'],
+  'mountain climber': ['CORE', 'MOUNTAIN_CLIMBER'],
+  'mountain climbers': ['CORE', 'MOUNTAIN_CLIMBER'],
+  'ab wheel': ['CORE', 'AB_WHEEL'],
+  'ab rollout': ['CORE', 'AB_WHEEL'],
+  'hanging leg raise': ['CORE', 'HANGING_LEG_RAISE'],
+  'leg raise': ['CORE', 'LYING_LEG_RAISE'],
+  'side plank': ['PLANK', 'SIDE_PLANK'],
+  'pallof press': ['CORE', 'PALLOF_PRESS'],
 }
+
+// Distance-based exercises (use meters instead of reps)
+const DISTANCE_EXERCISES = ['farmer walk', 'farmers walk', 'farmer carry', 'farmers carry', "farmer's walk", "farmer's carry"]
 
 const PARSE_PROMPT = `You are a workout parser. Convert the user's plain text workout description into structured JSON.
 
@@ -80,7 +97,8 @@ Output ONLY valid JSON with this structure:
       "sets": 3,
       "reps": 10,
       "weight_lbs": 135,
-      "rest_seconds": 90
+      "rest_seconds": 90,
+      "distance_meters": null
     }
   ]
 }
@@ -92,6 +110,10 @@ Rules:
 - "135lbs" or "135 lbs" or "135#" or "@ 135" all mean weight in pounds
 - If workout has no name, generate one based on exercises (e.g., "Upper Body", "Push Day")
 - Normalize exercise names to common form (e.g., "DB bench" -> "dumbbell bench press")
+- For farmer's walk/carry: use distance_meters instead of reps
+  - "40 yards" = 37 meters, "50 yards" = 46 meters, "100 feet" = 30 meters
+  - If distance given, set reps to 1 and include distance_meters
+  - Example: "farmer's walk 3x40 yards @ 70lbs" -> sets: 3, reps: 1, distance_meters: 37, weight_lbs: 70
 
 User input:
 `

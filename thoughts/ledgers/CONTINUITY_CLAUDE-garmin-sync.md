@@ -1,5 +1,5 @@
 # Session: garmin-sync
-Updated: 2026-01-19T04:12:08.105Z
+Updated: 2026-01-19T13:30:10.485Z
 
 ## Goal
 Public web app where anyone can plan strength workouts with AI, push to Garmin watch, and track progress.
@@ -11,9 +11,13 @@ Public web app where anyone can plan strength workouts with AI, push to Garmin w
 - Phase 4: Activity Sync + Comparison ✅
 
 ## State
-- Done: Auth, Garmin connect, workout parsing, workout push, activity sync, comparison view
-- Now: Test activity sync flow with real workout
-- Next: Phase 5 (Chatbot), Phase 6 (PWA)
+- Done: Phase 1-4 complete, initial commit (0031799), web interface fixes, activity sync with exercise details
+- Now: Create GitHub repo and push
+- Next: Phase 5 (Gemini Chatbot), Phase 6 (PWA + Mobile)
+
+## Git
+- Branch: master
+- Commit: 0031799 - Initial commit (63 files, 14k lines)
 
 ## Key Decisions
 1. **Next.js API routes proxy to FastAPI** - FastAPI handles garth auth, Next.js handles Supabase auth
@@ -57,6 +61,17 @@ GEMINI_API_KEY=✓ (added, working)
 - Fixed exercise mappings: added "triceps pushdown", "farmer's carry" variants
 - Fixed push-workout API to convert parsed workout → FastAPI format (name + exercises array)
 - Added garmin_tokens row for user (FastAPI stores tokens locally, but Next.js checks Supabase)
+
+## Features Added (2026-01-19)
+- Dashboard redesign: hero section, action cards, date badges on activities
+- Exercise name formatting (BARBELL_BACK_SQUAT → Barbell Back Squat)
+- Added core exercise mappings: bird dog, dead bug, russian twist, etc.
+- Workout settings: major lift rest (90s) vs minor lift rest (60s)
+- Unilateral exercise handling: double sets or double reps option
+- Farmer's carry distance tracking (yards → meters)
+
+## To Test / Verify
+- [ ] **Farmer's carry distance tracking** - Using `conditionTypeKey: "distance"` with `conditionTypeId: 3`. Need to push a workout with farmer's carry to verify Garmin accepts distance-based exercises. If fails, may need different conditionTypeId.
 
 ## Open Questions
 - How to handle exercises that don't map to Garmin IDs? (currently falls back to OTHER which may error)

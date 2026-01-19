@@ -16,6 +16,7 @@ type Exercise = {
   rest_seconds: number
   category?: string
   garmin_name?: string
+  distance_meters?: number  // For distance-based exercises like farmer's carry
 }
 
 type ParsedWorkout = {
@@ -25,13 +26,41 @@ type ParsedWorkout = {
 
 const REST_TIME_OPTIONS = [
   { value: 0, label: 'None' },
-  { value: 15, label: '15 sec' },
   { value: 30, label: '30 sec' },
   { value: 45, label: '45 sec' },
   { value: 60, label: '60 sec' },
   { value: 75, label: '75 sec' },
   { value: 90, label: '90 sec' },
+  { value: 120, label: '2 min' },
+  { value: 180, label: '3 min' },
 ]
+
+// Major compound lifts that need longer rest
+const MAJOR_LIFTS = [
+  'bench press', 'barbell bench press', 'dumbbell bench press',
+  'squat', 'back squat', 'front squat',
+  'deadlift', 'romanian deadlift', 'sumo deadlift',
+  'overhead press', 'ohp', 'shoulder press', 'military press',
+  'barbell row', 'bent over row', 'pendlay row',
+  'pull up', 'chin up', 'weighted pull up',
+  'hip thrust', 'barbell hip thrust',
+  'leg press',
+]
+
+// Unilateral exercises (done one side at a time)
+const UNILATERAL_EXERCISES = [
+  'dumbbell curl', 'hammer curl', 'concentration curl', 'preacher curl',
+  'single arm', 'one arm', 'single leg', 'one leg',
+  'lunge', 'walking lunge', 'reverse lunge', 'bulgarian split squat',
+  'step up', 'pistol squat',
+  'single leg deadlift', 'single leg rdl',
+  'dumbbell row', 'one arm row',
+  'lateral raise', 'front raise',
+  'tricep kickback',
+  'calf raise', // often done one leg at a time
+]
+
+type UnilateralMode = 'double_sets' | 'double_reps'
 
 export default function NewWorkoutPage() {
   const [rawText, setRawText] = useState('')
@@ -40,10 +69,41 @@ export default function NewWorkoutPage() {
   const [pushing, setPushing] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [defaultRestTime, setDefaultRestTime] = useState(90)
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Rest time settings
+  const [majorLiftRest, setMajorLiftRest] = useState(90)
+  const [minorLiftRest, setMinorLiftRest] = useState(60)
+
+  // Unilateral settings
+  const [unilateralMode, setUnilateralMode] = useState<UnilateralMode>('double_sets')
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Check if exercise is a major lift
+  function isMajorLift(exerciseName: string): boolean {
+    const nameLower = exerciseName.toLowerCase()
+    return MAJOR_LIFTS.some(lift => nameLower.includes(lift) || lift.includes(nameLower))
+  }
+
+  // Check if exercise is unilateral (done one side at a time)
+  function isUnilateral(exerciseName: string): boolean {
+    const nameLower = exerciseName.toLowerCase()
+    return UNILATERAL_EXERCISES.some(ex => nameLower.includes(ex) || ex.includes(nameLower))
+  }
+
+  // Apply unilateral mode to exercise
+  function applyUnilateralMode(exercise: Exercise): Exercise {
+    if (!isUnilateral(exercise.name)) return exercise
+
+    if (unilateralMode === 'double_sets') {
+      return { ...exercise, sets: exercise.sets * 2 }
+    } else {
+      return { ...exercise, reps: exercise.reps * 2 }
+    }
+  }
 
   useEffect(() => {
     // Check for prefilled workout from chat
@@ -77,15 +137,20 @@ export default function NewWorkoutPage() {
       const data = await res.json()
 
       if (data.parsed) {
-        // Apply default rest time to exercises
-        const workoutWithRest = {
+        // Apply rest time and unilateral settings
+        const workoutWithSettings = {
           ...data.parsed,
-          exercises: data.parsed.exercises.map((ex: Exercise) => ({
-            ...ex,
-            rest_seconds: ex.rest_seconds || defaultRestTime,
-          })),
+          exercises: data.parsed.exercises.map((ex: Exercise) => {
+            // First apply rest time
+            const withRest = {
+              ...ex,
+              rest_seconds: ex.rest_seconds || (isMajorLift(ex.name) ? majorLiftRest : minorLiftRest),
+            }
+            // Then apply unilateral mode
+            return applyUnilateralMode(withRest)
+          }),
         }
-        setParsed(workoutWithRest)
+        setParsed(workoutWithSettings)
       } else {
         setError(data.error || 'Failed to parse workout')
       }
@@ -188,26 +253,114 @@ Lateral Raises 3x15…`}
                   className="w-full mt-2 p-3 border rounded-md font-mono text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
-              <div className="flex items-end gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="rest-time">Default Rest Time</Label>
-                  <select
-                    id="rest-time"
-                    value={defaultRestTime}
-                    onChange={(e) => setDefaultRestTime(Number(e.target.value))}
-                    className="w-full mt-2 p-2 border rounded-md bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {REST_TIME_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+              {/* Settings Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowSettings(!showSettings)}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <svg
+                  className={`w-4 h-4 transition-transform ${showSettings ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                Workout Settings
+              </button>
+
+              {/* Collapsible Settings Panel */}
+              {showSettings && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-4">
+                  {/* Rest Time Settings */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Rest Times</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="major-rest" className="text-xs text-muted-foreground">
+                          Major Lifts (squat, bench, deadlift, etc.)
+                        </Label>
+                        <select
+                          id="major-rest"
+                          value={majorLiftRest}
+                          onChange={(e) => setMajorLiftRest(Number(e.target.value))}
+                          className="w-full mt-1 p-2 border rounded-md bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {REST_TIME_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="minor-rest" className="text-xs text-muted-foreground">
+                          Accessory Lifts (curls, raises, etc.)
+                        </Label>
+                        <select
+                          id="minor-rest"
+                          value={minorLiftRest}
+                          onChange={(e) => setMinorLiftRest(Number(e.target.value))}
+                          className="w-full mt-1 p-2 border rounded-md bg-background text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {REST_TIME_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Unilateral Settings */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-3">Single Arm/Leg Exercises</h4>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      How should we log exercises like curls or lunges done per side?
+                    </p>
+                    <div className="space-y-2">
+                      <label className="flex items-start gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="unilateral"
+                          value="double_sets"
+                          checked={unilateralMode === 'double_sets'}
+                          onChange={() => setUnilateralMode('double_sets')}
+                          className="mt-1"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">Double the sets</div>
+                          <div className="text-xs text-muted-foreground">
+                            3x12 curls per arm → 6 sets of 12 reps
+                          </div>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="unilateral"
+                          value="double_reps"
+                          checked={unilateralMode === 'double_reps'}
+                          onChange={() => setUnilateralMode('double_reps')}
+                          className="mt-1"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">Double the reps</div>
+                          <div className="text-xs text-muted-foreground">
+                            3x12 curls per arm → 3 sets of 24 reps
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-                <Button onClick={handleParse} disabled={loading || !rawText.trim()}>
-                  {loading ? 'Parsing…' : 'Parse Workout'}
-                </Button>
-              </div>
+              )}
+
+              <Button onClick={handleParse} disabled={loading || !rawText.trim()} className="w-full">
+                {loading ? 'Parsing…' : 'Parse Workout'}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -238,24 +391,49 @@ Lateral Raises 3x15…`}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 mb-6">
+              <div className="space-y-2 mb-6">
                 {parsed.exercises.map((ex, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                    className="p-3 bg-muted rounded-lg"
                   >
-                    <div>
-                      <span className="font-medium capitalize">{ex.name}</span>
-                      <span className="text-muted-foreground ml-2">
-                        {ex.sets}×{ex.reps}
-                        {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium capitalize">{ex.name}</span>
+                        <span className="text-muted-foreground ml-2">
+                          {ex.distance_meters
+                            ? `${ex.sets}× ${Math.round(ex.distance_meters * 1.094)} yds`
+                            : `${ex.sets}×${ex.reps}`}
+                          {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
+                        {ex.garmin_name === 'OTHER'
+                          ? 'Custom'
+                          : ex.garmin_name?.replace(/_/g, ' ')}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
-                      {ex.garmin_name === 'OTHER'
-                        ? 'Custom'
-                        : ex.garmin_name?.replace(/_/g, ' ')}
-                    </span>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {ex.rest_seconds}s rest
+                      </span>
+                      {isMajorLift(ex.name) && (
+                        <span className="text-blue-600 dark:text-blue-400">Major lift</span>
+                      )}
+                      {isUnilateral(ex.name) && (
+                        <span className="text-orange-600 dark:text-orange-400">
+                          Per-side ({unilateralMode === 'double_sets' ? '2× sets' : '2× reps'})
+                        </span>
+                      )}
+                      {ex.distance_meters && (
+                        <span className="text-green-600 dark:text-green-400">
+                          Distance-based
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
