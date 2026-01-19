@@ -40,12 +40,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center pb-2">
           <CardTitle className="text-2xl">Log in</CardTitle>
           <CardDescription>Welcome back to Garmin Sync</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 pt-4">
             {error && (
               <div role="alert" className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
                 {error}
@@ -75,7 +75,7 @@ export default function LoginPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 pt-2">
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Logging in…' : 'Log in'}
             </Button>
