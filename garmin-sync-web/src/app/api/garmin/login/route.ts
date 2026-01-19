@@ -49,19 +49,31 @@ export async function POST(request: NextRequest) {
     )
 
     // Upsert garmin_tokens
-    await serviceClient
+    const { error: upsertError } = await serviceClient
       .from('garmin_tokens')
-      .upsert({
-        user_id: user.id,
-        tokens_encrypted: data.tokens_encrypted,
-        garmin_display_name: email,
-      })
+      .upsert(
+        {
+          user_id: user.id,
+          tokens_encrypted: data.tokens_encrypted,
+          garmin_display_name: email,
+        },
+        { onConflict: 'user_id' }
+      )
+
+    if (upsertError) {
+      console.error('Failed to store tokens:', upsertError)
+      return NextResponse.json({ error: 'Failed to store Garmin credentials' }, { status: 500 })
+    }
 
     // Update profile
-    await serviceClient
+    const { error: profileError } = await serviceClient
       .from('profiles')
       .update({ garmin_connected: true })
       .eq('id', user.id)
+
+    if (profileError) {
+      console.error('Failed to update profile:', profileError)
+    }
 
     return NextResponse.json({ success: true, email })
   } catch (error) {
