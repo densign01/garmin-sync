@@ -42,10 +42,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No tokens returned from Garmin' }, { status: 500 })
     }
 
+    // Check for required env vars
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.error('Missing NEXT_PUBLIC_SUPABASE_URL')
+      return NextResponse.json({ error: 'Server configuration error: missing Supabase URL' }, { status: 500 })
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing SUPABASE_SERVICE_ROLE_KEY')
+      return NextResponse.json({ error: 'Server configuration error: missing service role key' }, { status: 500 })
+    }
+
     // Store encrypted tokens in Supabase using service role
     const serviceClient = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     )
 
     // Upsert garmin_tokens
@@ -61,8 +71,12 @@ export async function POST(request: NextRequest) {
       )
 
     if (upsertError) {
-      console.error('Failed to store tokens:', upsertError)
-      return NextResponse.json({ error: 'Failed to store Garmin credentials' }, { status: 500 })
+      console.error('Failed to store tokens:', JSON.stringify(upsertError))
+      return NextResponse.json({
+        error: 'Failed to store Garmin credentials',
+        detail: upsertError.message,
+        code: upsertError.code
+      }, { status: 500 })
     }
 
     // Update profile
