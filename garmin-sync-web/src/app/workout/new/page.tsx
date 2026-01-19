@@ -446,6 +446,9 @@ Lateral Raises 3x15…`}
               >
                 {pushing ? 'Pushing to Garmin…' : 'Push to Garmin Watch'}
               </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                First request of the day may take up to 30 seconds
+              </p>
             </CardContent>
           </Card>
         )}
