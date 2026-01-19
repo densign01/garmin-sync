@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garmin Sync</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #007bff; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 { margin-top: 0; }
+        input, select, button, textarea {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input, select, textarea { width: 100%; margin-bottom: 10px; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 12px 24px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.secondary { background: #6c757d; }
+        button.danger { background: #dc3545; }
+        .exercise-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 70px 70px 70px 80px 40px;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 10px;
+        }
+        .exercise-row label { font-size: 12px; color: #666; }
+        .exercise-row input, .exercise-row select { margin-bottom: 0; }
+        .remove-btn {
+            background: #dc3545;
+            padding: 10px;
+            width: 40px;
+        }
+        .status { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #cce5ff; color: #004085; }
+        .activity-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .activity-item:hover { background: #f8f9fa; }
+        .activity-item:last-child { border-bottom: none; }
+        .hidden { display: none; }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tabs button {
+            flex: 1;
+            background: #e9ecef;
+            color: #495057;
+        }
+        .tabs button.active {
+            background: #007bff;
+            color: white;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Garmin Sync</h1>
+
+    <!-- Login Section -->
+    <div id="login-section" class="card">
+        <h2>Login to Garmin Connect</h2>
+        <div id="auth-status" class="status info">Checking authentication...</div>
+        <div id="login-form">
+            <input type="email" id="email" placeholder="Garmin Email">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">Login</button>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until logged in) -->
+    <div id="main-app" class="hidden">
+        <div class="tabs">
+            <button class="active" onclick="showTab('create')">Create Workout</button>
+            <button onclick="showTab('activities')">Activities</button>
+            <button onclick="showTab('workouts')">My Workouts</button>
+        </div>
+
+        <!-- Create Workout Tab -->
+        <div id="tab-create" class="card">
+            <h2>Create Workout</h2>
+            <input type="text" id="workout-name" placeholder="Workout Name">
+            <textarea id="workout-desc" placeholder="Description (optional)" rows="2"></textarea>
+
+            <h3>Exercises</h3>
+            <div id="exercises-list"></div>
+            <button class="secondary" onclick="addExercise()">+ Add Exercise</button>
+
+            <div style="margin-top: 20px;">
+                <button onclick="createWorkout()">Push to Garmin</button>
+            </div>
+            <div id="create-status"></div>
+        </div>
+
+        <!-- Activities Tab -->
+        <div id="tab-activities" class="card hidden">
+            <h2>Completed Activities</h2>
+            <button onclick="loadActivities()">Refresh</button>
+            <div id="activities-list" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Workouts Tab -->
+        <div id="tab-workouts" class="card hidden">
+            <h2>My Workouts</h2>
+            <button onclick="loadWorkouts()">Refresh</button>
+            <div id="workouts-list" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Activity Detail Modal -->
+        <div id="activity-modal" class="card hidden">
+            <h2>Activity Details</h2>
+            <button class="secondary" onclick="hideActivityModal()">Close</button>
+            <button onclick="exportActivity()">Export for Gemini</button>
+            <pre id="activity-detail"></pre>
+        </div>
+    </div>
+
+    <script>
+        let exerciseCategories = {};
+        let currentActivityId = null;
+
+        // Check auth status on load
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const data = await res.json();
+                if (data.authenticated) {
+                    showLoggedIn();
+                } else {
+                    document.getElementById('auth-status').textContent = 'Please login';
+                    document.getElementById('auth-status').className = 'status info';
+                }
+            } catch (e) {
+                document.getElementById('auth-status').textContent = 'Error checking auth';
+                document.getElementById('auth-status').className = 'status error';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            document.getElementById('auth-status').textContent = 'Logging in...';
+            document.getElementById('auth-status').className = 'status info';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+
+                if (res.ok) {
+                    showLoggedIn();
+                } else {
+                    document.getElementById('auth-status').textContent = 'Login failed. Check credentials.';
+                    document.getElementById('auth-status').className = 'status error';
+                }
+            } catch (e) {
+                document.getElementById('auth-status').textContent = 'Error: ' + e.message;
+                document.getElementById('auth-status').className = 'status error';
+            }
+        }
+
+        async function showLoggedIn() {
+            document.getElementById('auth-status').textContent = 'Logged in!';
+            document.getElementById('auth-status').className = 'status success';
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+
+            // Load exercise categories
+            const res = await fetch('/api/exercises');
+            exerciseCategories = await res.json();
+
+            // Add first exercise
+            addExercise();
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('tab-create').classList.add('hidden');
+            document.getElementById('tab-activities').classList.add('hidden');
+            document.getElementById('tab-workouts').classList.add('hidden');
+            document.getElementById('activity-modal').classList.add('hidden');
+
+            document.getElementById('tab-' + tab).classList.remove('hidden');
+
+            if (tab === 'activities') loadActivities();
+            if (tab === 'workouts') loadWorkouts();
+        }
+
+        function addExercise() {
+            const list = document.getElementById('exercises-list');
+            const idx = list.children.length;
+
+            const row = document.createElement('div');
+            row.className = 'exercise-row';
+            row.innerHTML = `
+                <div>
+                    <label>Category</label>
+                    <select onchange="updateExercises(this, ${idx})">
+                        <option value="">Select...</option>
+                        ${Object.keys(exerciseCategories).map(c => `<option value="${c}">${c.replace(/_/g, ' ')}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label>Exercise</label>
+                    <select id="exercise-${idx}">
+                        <option value="">Select category first</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Sets</label>
+                    <input type="number" value="3" min="1" id="sets-${idx}">
+                </div>
+                <div>
+                    <label>Reps</label>
+                    <input type="number" value="10" min="1" id="reps-${idx}">
+                </div>
+                <div>
+                    <label>Rest (s)</label>
+                    <input type="number" value="60" min="0" id="rest-${idx}">
+                </div>
+                <div>
+                    <label>Weight (lbs)</label>
+                    <input type="number" placeholder="--" min="0" step="2.5" id="weight-${idx}">
+                </div>
+                <button class="remove-btn" onclick="this.parentElement.remove()">X</button>
+            `;
+            list.appendChild(row);
+        }
+
+        function updateExercises(select, idx) {
+            const category = select.value;
+            const exerciseSelect = document.getElementById('exercise-' + idx);
+            const exercises = exerciseCategories[category] || [];
+
+            exerciseSelect.innerHTML = exercises.map(e =>
+                `<option value="${e}">${e.replace(/_/g, ' ')}</option>`
+            ).join('');
+        }
+
+        async function createWorkout() {
+            const name = document.getElementById('workout-name').value;
+            const desc = document.getElementById('workout-desc').value;
+            const rows = document.querySelectorAll('.exercise-row');
+
+            const exercises = [];
+            rows.forEach((row, i) => {
+                const category = row.querySelector('select').value;
+                const exercise = document.getElementById('exercise-' + i)?.value;
+                const sets = parseInt(document.getElementById('sets-' + i)?.value || 3);
+                const reps = parseInt(document.getElementById('reps-' + i)?.value || 10);
+                const rest = parseInt(document.getElementById('rest-' + i)?.value || 60);
+
+                if (category && exercise) {
+                    const weight = parseFloat(document.getElementById('weight-' + i)?.value) || null;
+                    exercises.push({
+                        category,
+                        exercise_name: exercise,
+                        sets,
+                        reps,
+                        rest_seconds: rest,
+                        weight_lbs: weight
+                    });
+                }
+            });
+
+            if (!name || exercises.length === 0) {
+                document.getElementById('create-status').innerHTML =
+                    '<div class="status error">Please enter a name and at least one exercise</div>';
+                return;
+            }
+
+            document.getElementById('create-status').innerHTML =
+                '<div class="status info">Creating workout...</div>';
+
+            try {
+                const res = await fetch('/api/workouts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, description: desc, exercises})
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('create-status').innerHTML =
+                        `<div class="status success">Workout "${data.workoutName}" created! It will sync to your watch.</div>`;
+                } else {
+                    document.getElementById('create-status').innerHTML =
+                        `<div class="status error">Error: ${data.detail}</div>`;
+                }
+            } catch (e) {
+                document.getElementById('create-status').innerHTML =
+                    `<div class="status error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadActivities() {
+            const list = document.getElementById('activities-list');
+            list.innerHTML = '<div class="status info">Loading...</div>';
+
+            try {
+                const res = await fetch('/api/activities?limit=20');
+                const activities = await res.json();
+
+                if (activities.length === 0) {
+                    list.innerHTML = '<div class="status info">No strength activities found</div>';
+                    return;
+                }
+
+                list.innerHTML = activities.map(a => `
+                    <div class="activity-item" onclick="showActivity(${a.activityId})">
+                        <strong>${a.activityName || 'Strength Training'}</strong><br>
+                        <small>${new Date(a.startTimeLocal).toLocaleDateString()} - ${Math.round(a.duration/60)} min</small>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = `<div class="status error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadWorkouts() {
+            const list = document.getElementById('workouts-list');
+            list.innerHTML = '<div class="status info">Loading...</div>';
+
+            try {
+                const res = await fetch('/api/workouts?limit=20');
+                const workouts = await res.json();
+
+                if (workouts.length === 0) {
+                    list.innerHTML = '<div class="status info">No workouts found</div>';
+                    return;
+                }
+
+                list.innerHTML = workouts.map(w => `
+                    <div class="activity-item">
+                        <strong>${w.workoutName}</strong><br>
+                        <small>${w.description?.substring(0, 100) || 'No description'}...</small>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = `<div class="status error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function showActivity(activityId) {
+            currentActivityId = activityId;
+            document.getElementById('activity-modal').classList.remove('hidden');
+            document.getElementById('activity-detail').textContent = 'Loading...';
+
+            try {
+                const res = await fetch(`/api/activities/${activityId}`);
+                const data = await res.json();
+                document.getElementById('activity-detail').textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById('activity-detail').textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function hideActivityModal() {
+            document.getElementById('activity-modal').classList.add('hidden');
+        }
+
+        async function exportActivity() {
+            if (!currentActivityId) return;
+
+            try {
+                const res = await fetch(`/api/activities/${currentActivityId}/export`);
+                const data = await res.json();
+                document.getElementById('activity-detail').textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById('activity-detail').textContent = 'Error: ' + e.message;
+            }
+        }
+
+        // Init
+        checkAuth();
+    </script>
+</body>
+</html>
