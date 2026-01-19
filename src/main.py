@@ -54,6 +54,12 @@ def encrypt_tokens(tokens_str: str) -> str:
     return base64.b64encode(combined.encode()).decode()
 
 
+def decrypt_tokens(encrypted: str) -> str:
+    """Decrypt tokens from storage."""
+    decoded = base64.b64decode(encrypted.encode()).decode()
+    return decoded.split(":", 1)[1]
+
+
 @app.get("/")
 async def root():
     """Serve the frontend."""
@@ -81,6 +87,35 @@ async def login(request: LoginRequest) -> LoginResponse:
         return LoginResponse(authenticated=True, tokens_encrypted=encrypted)
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Login failed: {str(e)}")
+
+
+class PushWorkoutRequest(BaseModel):
+    tokens_encrypted: str
+    workout: dict
+
+
+@app.post("/api/workouts/push")
+async def push_workout_with_tokens(request: PushWorkoutRequest) -> dict:
+    """Push workout using provided encrypted tokens."""
+    try:
+        # Decrypt and load tokens
+        tokens_str = decrypt_tokens(request.tokens_encrypted)
+        garth.client.loads(tokens_str)
+
+        # Push workout
+        result = garth.connectapi(
+            "/workout-service/workout",
+            method="POST",
+            json=request.workout,
+        )
+
+        return {
+            "success": True,
+            "workoutId": result.get("workoutId"),
+            "workoutName": result.get("workoutName"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/exercises")
