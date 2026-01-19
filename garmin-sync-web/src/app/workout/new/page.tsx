@@ -471,12 +471,17 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
   let stepOrder = 1
 
   for (const ex of parsed.exercises) {
+    // Use distance condition for distance-based exercises (farmer's walk, etc.)
+    const isDistanceBased = ex.distance_meters && ex.distance_meters > 0
+
     const exerciseStep = {
       type: 'ExecutableStepDTO',
       stepOrder: stepOrder + 1,
       stepType: { stepTypeId: 3, stepTypeKey: 'interval' },
-      endCondition: { conditionTypeId: 10, conditionTypeKey: 'reps' },
-      endConditionValue: ex.reps,
+      endCondition: isDistanceBased
+        ? { conditionTypeId: 3, conditionTypeKey: 'distance' }
+        : { conditionTypeId: 10, conditionTypeKey: 'reps' },
+      endConditionValue: isDistanceBased ? ex.distance_meters : ex.reps,
       targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target' },
       category: ex.category || 'OTHER',
       exerciseName: ex.garmin_name || 'OTHER',
