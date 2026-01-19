@@ -182,14 +182,15 @@ function NewWorkoutContent() {
         return
       }
 
-      // Send parsed workout - the API will convert to Garmin format
+      // Convert to Garmin format and send to Python API
+      const garminWorkout = buildGarminWorkout(parsed)
       const res = await fetch('/api/garmin/push-workout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ workout: parsed }),
+        body: JSON.stringify({ workout: garminWorkout }),
       })
 
       const data = await res.json()
