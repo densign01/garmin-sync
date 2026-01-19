@@ -140,6 +140,21 @@ export default async function DashboardPage() {
 
         {/* Activities Section */}
         {profile?.garmin_connected && <ActivitiesSection />}
+
+        {/* Footer */}
+        <footer className="mt-16 pt-8 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <p>Garmin Sync</p>
+            <nav className="flex gap-6">
+              <Link href="/support" className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+                Support
+              </Link>
+              <Link href="/privacy" className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+                Privacy
+              </Link>
+            </nav>
+          </div>
+        </footer>
       </main>
     </div>
   )

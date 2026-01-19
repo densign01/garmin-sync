@@ -74,8 +74,20 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          Built for lifters who just want to train.
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Built for lifters who just want to train.
+            </p>
+            <nav className="flex gap-6 text-sm text-muted-foreground">
+              <Link href="/support" className="hover:text-foreground transition-colors">
+                Support
+              </Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+            </nav>
+          </div>
         </div>
       </footer>
     </div>
