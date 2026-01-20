@@ -417,7 +417,7 @@ Lateral Raises 3x15…`}
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
-                        {ex.garmin_name === 'OTHER'
+                        {ex.garmin_name === 'CORE' && ex.category === 'CORE'
                           ? 'Custom'
                           : ex.garmin_name?.replace(/_/g, ' ')}
                       </span>
@@ -475,8 +475,8 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
     // Garmin's strength mode doesn't support distance as end condition - use manual lap press
     const isDistanceBased = ex.distance_meters && ex.distance_meters > 0
 
-    // Custom exercises use "OTHER" with the real name in description
-    const isCustomExercise = ex.garmin_name === 'OTHER' || !ex.garmin_name
+    // Custom exercises use "CORE" with the real name in description
+    const isCustomExercise = ex.garmin_name === 'CORE' || !ex.garmin_name
 
     // Build description: include custom name and/or distance target
     let description = ''
@@ -500,8 +500,8 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
       // For lap button, no value needed; for reps, use rep count
       ...(isDistanceBased ? {} : { endConditionValue: Number(ex.reps) }),
       targetType: { workoutTargetTypeId: Number(1), workoutTargetTypeKey: 'no.target' },
-      category: ex.category || 'OTHER',
-      exerciseName: ex.garmin_name || 'OTHER',
+      category: ex.category || 'CORE',
+      exerciseName: ex.garmin_name || 'CORE',
       // Description shows custom exercise name and/or distance target
       ...(description && { description }),
       weightUnit: { unitId: Number(9), unitKey: 'pound', factor: 453.59237 },

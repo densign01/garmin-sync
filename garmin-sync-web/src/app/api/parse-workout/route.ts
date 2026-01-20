@@ -164,8 +164,9 @@ export async function POST(request: NextRequest) {
           ex.category = match.category
           ex.garmin_name = match.garminName
         } else {
-          ex.category = 'OTHER'
-          ex.garmin_name = 'OTHER'
+          // CORE is a valid Garmin category and exercise (OTHER is not valid)
+          ex.category = 'CORE'
+          ex.garmin_name = 'CORE'
         }
       }
 
