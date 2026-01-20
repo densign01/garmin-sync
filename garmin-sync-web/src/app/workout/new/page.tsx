@@ -21,6 +21,13 @@ type ExerciseWarning = {
   suggestions: ExerciseSuggestion[]
 }
 
+type ExerciseOverride = {
+  garmin_name: string
+  garmin_display_name: string
+  category: string
+  confidence: 'exact' | 'high' | 'medium' | 'low' | 'none'
+}
+
 type Exercise = {
   name: string
   sets: number
@@ -89,6 +96,8 @@ function NewWorkoutContent() {
   const [rawText, setRawText] = useState('')
   const [parsed, setParsed] = useState<ParsedWorkout | null>(null)
   const [warnings, setWarnings] = useState<ExerciseWarning[]>([])
+  const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, ExerciseOverride>>({})
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [pushing, setPushing] = useState(false)
   const [error, setError] = useState('')
@@ -137,11 +146,47 @@ function NewWorkoutContent() {
     }
   }, [searchParams])
 
+  // Get effective exercise data (with any user overrides applied)
+  function getEffectiveExercise(ex: Exercise): Exercise {
+    const override = exerciseOverrides[ex.name]
+    if (override) {
+      return {
+        ...ex,
+        garmin_name: override.garmin_name,
+        garmin_display_name: override.garmin_display_name,
+        category: override.category,
+        confidence: override.confidence,
+      }
+    }
+    return ex
+  }
+
+  // Handle swapping an exercise to a suggested match
+  function handleSwapExercise(exerciseName: string, suggestion: ExerciseSuggestion) {
+    setExerciseOverrides(prev => ({
+      ...prev,
+      [exerciseName]: {
+        garmin_name: suggestion.garminName,
+        garmin_display_name: suggestion.name,
+        category: suggestion.category,
+        confidence: 'high', // User explicitly confirmed this match
+      },
+    }))
+    setExpandedExercise(null)
+  }
+
+  // Find warnings/suggestions for a specific exercise
+  function getExerciseWarning(exerciseName: string): ExerciseWarning | undefined {
+    return warnings.find(w => w.exercise.toLowerCase() === exerciseName.toLowerCase())
+  }
+
   async function handleParse() {
     setLoading(true)
     setError('')
     setParsed(null)
     setWarnings([])
+    setExerciseOverrides({})
+    setExpandedExercise(null)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -204,8 +249,13 @@ function NewWorkoutContent() {
         return
       }
 
+      // Apply overrides to exercises before building Garmin workout
+      const effectiveWorkout = {
+        ...parsed,
+        exercises: parsed.exercises.map(ex => getEffectiveExercise(ex)),
+      }
       // Convert to Garmin format and send to Python API
-      const garminWorkout = buildGarminWorkout(parsed)
+      const garminWorkout = buildGarminWorkout(effectiveWorkout)
       const res = await fetch('/api/garmin/push-workout', {
         method: 'POST',
         headers: {
@@ -416,30 +466,6 @@ Lateral Raises 3x15…`}
           </div>
         )}
 
-        {/* Exercise matching warnings */}
-        {warnings.length > 0 && parsed && !success && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <h4 className="font-medium text-amber-800 mb-2">Exercise Matching Notes</h4>
-            <div className="space-y-3">
-              {warnings.map((warning, i) => (
-                <div key={i} className="text-sm">
-                  <p className="text-amber-700">{warning.message}</p>
-                  {warning.suggestions.length > 0 && (
-                    <div className="mt-1 ml-4">
-                      <p className="text-amber-600 text-xs">Did you mean:</p>
-                      <ul className="text-xs text-amber-600 list-disc ml-4">
-                        {warning.suggestions.map((s, j) => (
-                          <li key={j}>{s.name}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {parsed && !success && (
           <Card>
             <CardHeader>
@@ -450,56 +476,105 @@ Lateral Raises 3x15…`}
             </CardHeader>
             <CardContent>
               <div className="space-y-2 mb-6">
-                {parsed.exercises.map((ex, i) => (
-                  <div
-                    key={i}
-                    className="p-3 bg-muted rounded-lg"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium capitalize">{ex.name}</span>
-                        <span className="text-muted-foreground ml-2">
-                          {ex.distance_meters
-                            ? `${ex.sets}× ${Math.round(ex.distance_meters * 1.094)} yds`
-                            : `${ex.sets}×${ex.reps}`}
-                          {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
-                        </span>
+                {parsed.exercises.map((ex, i) => {
+                  const effective = getEffectiveExercise(ex)
+                  const warning = getExerciseWarning(ex.name)
+                  const hasOverride = !!exerciseOverrides[ex.name]
+                  const showSuggestions = warning && warning.suggestions.length > 0 && !hasOverride
+                  const isExpanded = expandedExercise === ex.name
+
+                  return (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg ${
+                        showSuggestions ? 'bg-amber-50 border border-amber-200' : 'bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium capitalize">{ex.name}</span>
+                          <span className="text-muted-foreground ml-2">
+                            {ex.distance_meters
+                              ? `${ex.sets}× ${Math.round(ex.distance_meters * 1.094)} yds`
+                              : `${ex.sets}×${ex.reps}`}
+                            {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {/* Current match badge */}
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            effective.confidence === 'exact' || effective.confidence === 'high'
+                              ? 'bg-green-100 text-green-700'
+                              : effective.confidence === 'medium'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {effective.garmin_name === 'CORE' && effective.category === 'CORE'
+                              ? 'Custom'
+                              : effective.garmin_display_name || effective.garmin_name?.replace(/_/g, ' ')}
+                          </span>
+                          {/* Expand/collapse suggestions button */}
+                          {showSuggestions && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedExercise(isExpanded ? null : ex.name)}
+                              className="text-xs text-amber-600 hover:text-amber-800 underline"
+                            >
+                              {isExpanded ? 'hide' : 'swap?'}
+                            </button>
+                          )}
+                          {/* Show checkmark if user confirmed a swap */}
+                          {hasOverride && (
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        ex.confidence === 'exact' || ex.confidence === 'high'
-                          ? 'bg-green-100 text-green-700'
-                          : ex.confidence === 'medium'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {ex.garmin_name === 'CORE' && ex.category === 'CORE'
-                          ? 'Custom'
-                          : ex.garmin_display_name || ex.garmin_name?.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {ex.rest_seconds}s rest
-                      </span>
-                      {isMajorLift(ex.name) && (
-                        <span className="text-blue-600 dark:text-blue-400">Major lift</span>
+
+                      {/* Inline suggestions when expanded */}
+                      {showSuggestions && isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-amber-200">
+                          <p className="text-xs text-amber-700 mb-2">Select a better match:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {warning.suggestions.map((suggestion, j) => (
+                              <button
+                                key={j}
+                                type="button"
+                                onClick={() => handleSwapExercise(ex.name, suggestion)}
+                                className="text-xs px-2 py-1 rounded bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-colors"
+                              >
+                                {suggestion.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                      {isUnilateral(ex.name) && (
-                        <span className="text-orange-600 dark:text-orange-400">
-                          Per-side ({unilateralMode === 'double_sets' ? '2× sets' : '2× reps'})
+
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {ex.rest_seconds}s rest
                         </span>
-                      )}
-                      {ex.distance_meters && (
-                        <span className="text-green-600 dark:text-green-400">
-                          Distance-based
-                        </span>
-                      )}
+                        {isMajorLift(ex.name) && (
+                          <span className="text-blue-600 dark:text-blue-400">Major lift</span>
+                        )}
+                        {isUnilateral(ex.name) && (
+                          <span className="text-orange-600 dark:text-orange-400">
+                            Per-side ({unilateralMode === 'double_sets' ? '2× sets' : '2× reps'})
+                          </span>
+                        )}
+                        {ex.distance_meters && (
+                          <span className="text-green-600 dark:text-green-400">
+                            Distance-based
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               <Button
