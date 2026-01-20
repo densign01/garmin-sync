@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { findGarminExercise } from '@/lib/garmin-exercises'
+import { findGarminExerciseWithSuggestions, type ExerciseSuggestion } from '@/lib/garmin-exercises'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
@@ -151,6 +151,8 @@ export async function POST(request: NextRequest) {
       const parsed = JSON.parse(textResult.trim())
 
       // Map exercise names to Garmin IDs using 1,500+ exercise database
+      const exerciseWarnings: { exercise: string; message: string; suggestions: ExerciseSuggestion[] }[] = []
+
       for (const ex of parsed.exercises || []) {
         let nameLower = ex.name.toLowerCase().trim()
 
@@ -159,21 +161,36 @@ export async function POST(request: NextRequest) {
           nameLower = EXERCISE_ALIASES[nameLower]
         }
 
-        // Look up in Garmin exercise database
-        const match = findGarminExercise(nameLower)
-        if (match) {
-          ex.category = match.category
-          ex.garmin_name = match.garminName
-        } else {
-          // CORE is a valid Garmin category and exercise (OTHER is not valid)
-          ex.category = 'CORE'
-          ex.garmin_name = 'CORE'
+        // Look up in Garmin exercise database with confidence scoring
+        const result = findGarminExerciseWithSuggestions(nameLower)
+
+        if (result.match) {
+          ex.category = result.match.category
+          ex.garmin_name = result.match.garminName
+          ex.confidence = result.match.confidence
+          ex.garmin_display_name = result.match.displayName
+
+          // Add warning for low-confidence matches
+          if (result.match.confidence === 'none') {
+            exerciseWarnings.push({
+              exercise: ex.name,
+              message: `"${ex.name}" not found in Garmin database. Will show as "Core" on watch.`,
+              suggestions: result.suggestions,
+            })
+          } else if (result.match.confidence === 'medium' && result.suggestions.length > 0) {
+            exerciseWarnings.push({
+              exercise: ex.name,
+              message: `"${ex.name}" matched to "${result.match.displayName}" (medium confidence)`,
+              suggestions: result.suggestions,
+            })
+          }
         }
       }
 
       return NextResponse.json({
         parsed,
         raw_input: text,
+        warnings: exerciseWarnings.length > 0 ? exerciseWarnings : undefined,
       })
     } catch (parseError) {
       console.error('JSON parse error:', parseError, 'Raw:', textResult)

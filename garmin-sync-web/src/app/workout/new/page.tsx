@@ -8,6 +8,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 
+type ExerciseSuggestion = {
+  name: string
+  category: string
+  garminName: string
+  score: number
+}
+
+type ExerciseWarning = {
+  exercise: string
+  message: string
+  suggestions: ExerciseSuggestion[]
+}
+
 type Exercise = {
   name: string
   sets: number
@@ -16,6 +29,8 @@ type Exercise = {
   rest_seconds: number
   category?: string
   garmin_name?: string
+  garmin_display_name?: string
+  confidence?: 'exact' | 'high' | 'medium' | 'low' | 'none'
   distance_meters?: number  // For distance-based exercises like farmer's carry
 }
 
@@ -73,6 +88,7 @@ export default function NewWorkoutPage() {
 function NewWorkoutContent() {
   const [rawText, setRawText] = useState('')
   const [parsed, setParsed] = useState<ParsedWorkout | null>(null)
+  const [warnings, setWarnings] = useState<ExerciseWarning[]>([])
   const [loading, setLoading] = useState(false)
   const [pushing, setPushing] = useState(false)
   const [error, setError] = useState('')
@@ -125,6 +141,7 @@ function NewWorkoutContent() {
     setLoading(true)
     setError('')
     setParsed(null)
+    setWarnings([])
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -159,6 +176,11 @@ function NewWorkoutContent() {
           }),
         }
         setParsed(workoutWithSettings)
+
+        // Capture warnings about exercise matching
+        if (data.warnings && data.warnings.length > 0) {
+          setWarnings(data.warnings)
+        }
       } else {
         setError(data.error || 'Failed to parse workout')
       }
@@ -190,7 +212,10 @@ function NewWorkoutContent() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ workout: garminWorkout }),
+        body: JSON.stringify({
+          workout: garminWorkout,
+          warnings: warnings.length > 0 ? warnings : undefined,
+        }),
       })
 
       const data = await res.json()
@@ -391,6 +416,30 @@ Lateral Raises 3x15…`}
           </div>
         )}
 
+        {/* Exercise matching warnings */}
+        {warnings.length > 0 && parsed && !success && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <h4 className="font-medium text-amber-800 mb-2">Exercise Matching Notes</h4>
+            <div className="space-y-3">
+              {warnings.map((warning, i) => (
+                <div key={i} className="text-sm">
+                  <p className="text-amber-700">{warning.message}</p>
+                  {warning.suggestions.length > 0 && (
+                    <div className="mt-1 ml-4">
+                      <p className="text-amber-600 text-xs">Did you mean:</p>
+                      <ul className="text-xs text-amber-600 list-disc ml-4">
+                        {warning.suggestions.map((s, j) => (
+                          <li key={j}>{s.name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {parsed && !success && (
           <Card>
             <CardHeader>
@@ -416,10 +465,16 @@ Lateral Raises 3x15…`}
                           {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground bg-background px-2 py-1 rounded">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        ex.confidence === 'exact' || ex.confidence === 'high'
+                          ? 'bg-green-100 text-green-700'
+                          : ex.confidence === 'medium'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
                         {ex.garmin_name === 'CORE' && ex.category === 'CORE'
                           ? 'Custom'
-                          : ex.garmin_name?.replace(/_/g, ' ')}
+                          : ex.garmin_display_name || ex.garmin_name?.replace(/_/g, ' ')}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">

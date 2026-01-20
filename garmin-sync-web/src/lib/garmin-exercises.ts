@@ -8102,13 +8102,46 @@ function scoreMatch(inputWords: Set<string>, candidateKey: string): number {
   return score * matchRatio
 }
 
+export type ExerciseMatch = {
+  category: string
+  garminName: string
+  confidence: 'exact' | 'high' | 'medium' | 'low' | 'none'
+  displayName: string  // Human-readable name
+}
+
+export type ExerciseSuggestion = {
+  name: string  // Human-readable name
+  category: string
+  garminName: string
+  score: number
+}
+
+export type ExerciseMatchResult = {
+  match: ExerciseMatch | null
+  suggestions: ExerciseSuggestion[]  // Top 3 alternatives if confidence is low
+}
+
 // Find best matching exercise using word overlap scoring
 export function findGarminExercise(name: string): { category: string; garminName: string } | null {
+  const result = findGarminExerciseWithSuggestions(name)
+  return result.match ? { category: result.match.category, garminName: result.match.garminName } : null
+}
+
+// Find exercise with confidence level and suggestions
+export function findGarminExerciseWithSuggestions(name: string): ExerciseMatchResult {
   const nameLower = name.toLowerCase().trim()
 
   // 1. Exact match (fastest)
   if (GARMIN_EXERCISES[nameLower]) {
-    return { category: GARMIN_EXERCISES[nameLower][0], garminName: GARMIN_EXERCISES[nameLower][1] }
+    return {
+      match: {
+        category: GARMIN_EXERCISES[nameLower][0],
+        garminName: GARMIN_EXERCISES[nameLower][1],
+        confidence: 'exact',
+        displayName: formatDisplayName(nameLower),
+      },
+      suggestions: [],
+    }
   }
 
   // 2. Try without special chars
@@ -8119,28 +8152,87 @@ export function findGarminExercise(name: string): { category: string; garminName
     .replace(/\s+/g, ' ')
 
   if (GARMIN_EXERCISES[simplified]) {
-    return { category: GARMIN_EXERCISES[simplified][0], garminName: GARMIN_EXERCISES[simplified][1] }
-  }
-
-  // 3. Fuzzy match: find BEST match by word overlap score
-  const inputWords = new Set(simplified.split(' ').filter(w => w.length > 1))
-
-  let bestMatch: { category: string; garminName: string } | null = null
-  let bestScore = 0
-
-  for (const [key, value] of Object.entries(GARMIN_EXERCISES)) {
-    const score = scoreMatch(inputWords, key)
-    if (score > bestScore) {
-      bestScore = score
-      bestMatch = { category: value[0], garminName: value[1] }
+    return {
+      match: {
+        category: GARMIN_EXERCISES[simplified][0],
+        garminName: GARMIN_EXERCISES[simplified][1],
+        confidence: 'exact',
+        displayName: formatDisplayName(simplified),
+      },
+      suggestions: [],
     }
   }
 
-  // Require minimum score to avoid bad matches
-  // (at least one significant word must match)
-  if (bestScore >= 4) {
-    return bestMatch
+  // 3. Fuzzy match: find BEST matches by word overlap score
+  const inputWords = new Set(simplified.split(' ').filter(w => w.length > 1))
+
+  // Collect all scored matches
+  const scoredMatches: { key: string; category: string; garminName: string; score: number }[] = []
+
+  for (const [key, value] of Object.entries(GARMIN_EXERCISES)) {
+    const score = scoreMatch(inputWords, key)
+    if (score > 0) {
+      scoredMatches.push({
+        key,
+        category: value[0],
+        garminName: value[1],
+        score,
+      })
+    }
   }
 
-  return null
+  // Sort by score descending
+  scoredMatches.sort((a, b) => b.score - a.score)
+
+  const bestMatch = scoredMatches[0]
+  const suggestions = scoredMatches.slice(0, 3).map(m => ({
+    name: formatDisplayName(m.key),
+    category: m.category,
+    garminName: m.garminName,
+    score: m.score,
+  }))
+
+  // Determine confidence based on score
+  if (bestMatch && bestMatch.score >= 8) {
+    return {
+      match: {
+        category: bestMatch.category,
+        garminName: bestMatch.garminName,
+        confidence: 'high',
+        displayName: formatDisplayName(bestMatch.key),
+      },
+      suggestions: [],
+    }
+  }
+
+  if (bestMatch && bestMatch.score >= 4) {
+    return {
+      match: {
+        category: bestMatch.category,
+        garminName: bestMatch.garminName,
+        confidence: 'medium',
+        displayName: formatDisplayName(bestMatch.key),
+      },
+      suggestions: suggestions.slice(1), // Show alternatives
+    }
+  }
+
+  // Low confidence - return suggestions but use CORE as fallback
+  return {
+    match: {
+      category: 'CORE',
+      garminName: 'CORE',
+      confidence: 'none',
+      displayName: 'Core (Custom)',
+    },
+    suggestions,
+  }
+}
+
+// Format exercise name for display (capitalize words)
+function formatDisplayName(key: string): string {
+  return key
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
