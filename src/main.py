@@ -1,9 +1,9 @@
 """FastAPI app for Garmin workout sync."""
 import os
-import base64
 from pathlib import Path
 
 import garth
+from cryptography.fernet import Fernet
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,15 +22,31 @@ from .schemas import (
 
 load_dotenv()
 
-ENCRYPTION_KEY = os.environ.get("GARMIN_ENCRYPTION_KEY", "default-key")
+# Encryption key must be set - no fallback for security
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENCRYPTION_KEY = os.environ.get("GARMIN_ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    raise RuntimeError("GARMIN_ENCRYPTION_KEY environment variable is required")
+
+# Validate key format (must be 32 url-safe base64-encoded bytes)
+try:
+    _fernet = Fernet(ENCRYPTION_KEY.encode())
+except Exception as e:
+    raise RuntimeError(f"Invalid GARMIN_ENCRYPTION_KEY format: {e}. Generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"")
 
 app = FastAPI(title="Garmin Sync", description="Sync strength workouts with Garmin Connect")
 
+# Restrict CORS to known origins only
+ALLOWED_ORIGINS = [
+    "https://garmin-sync.vercel.app",
+    "http://localhost:3000",  # Local development
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -49,15 +65,15 @@ class LoginResponse(BaseModel):
 
 
 def encrypt_tokens(tokens_str: str) -> str:
-    """Encrypt tokens for storage."""
-    combined = f"{ENCRYPTION_KEY[:8]}:{tokens_str}"
-    return base64.b64encode(combined.encode()).decode()
+    """Encrypt tokens using Fernet symmetric encryption."""
+    f = Fernet(ENCRYPTION_KEY.encode())
+    return f.encrypt(tokens_str.encode()).decode()
 
 
 def decrypt_tokens(encrypted: str) -> str:
-    """Decrypt tokens from storage."""
-    decoded = base64.b64decode(encrypted.encode()).decode()
-    return decoded.split(":", 1)[1]
+    """Decrypt tokens using Fernet symmetric encryption."""
+    f = Fernet(ENCRYPTION_KEY.encode())
+    return f.decrypt(encrypted.encode()).decode()
 
 
 @app.get("/")
