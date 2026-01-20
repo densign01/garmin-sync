@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Garmin Sync
 
-## Getting Started
+Web app to plan strength workouts with AI, push to Garmin watch, and track progress.
 
-First, run the development server:
+**Live:** https://garmin-sync.vercel.app
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+- **Natural language workout input** - Type "Bench Press 3x8 @ 185 lbs" and it parses automatically
+- **AI-powered parsing** - Gemini understands workout formats and normalizes exercise names
+- **1,500+ exercise database** - Maps user input to Garmin's official exercise IDs with fuzzy matching
+- **Push to Garmin Connect** - Workouts sync to your watch for guided training
+- **Smart defaults** - Auto-assigns rest times based on exercise type (major lifts vs accessories)
+
+## Tech Stack
+
+- **Frontend:** Next.js 14 (App Router), Tailwind CSS, shadcn/ui
+- **Backend:** FastAPI on Render (for Garmin auth via garth library)
+- **Database:** Supabase (auth + workout storage)
+- **AI:** Google Gemini 2.0 Flash (workout parsing)
+
+## Architecture
+
+```
+User → Vercel (Next.js) → Supabase (auth/storage)
+                       → Gemini (parse workout text)
+                       → Render (FastAPI) → Garmin Connect API
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Exercise Mapping
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The app includes a comprehensive exercise database from [GarminExercisesCollector](https://github.com/maximecharriere/GarminExercisesCollector):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **1,510 exercises** with categories and Garmin IDs
+- **Fuzzy matching** using word-overlap scoring (finds best match, not first)
+- **Alias support** for abbreviations (rdl, ohp, ghr) and variants (trap bar → trap-bar)
 
-## Learn More
+Examples:
+| User Input | Garmin Match |
+|------------|--------------|
+| trap bar deadlift | TRAP_BAR_DEADLIFT |
+| incline dumbbell press | INCLINE_DUMBBELL_BENCH_PRESS |
+| lat pulldown | LAT_PULLDOWN |
+| rdl | ROMANIAN_DEADLIFT |
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Vercel (Next.js)
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+GARMIN_ENCRYPTION_KEY
+GEMINI_API_KEY
+PYTHON_API_URL=https://garmin-sync-api.onrender.com
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Render (FastAPI)
+```
+GARMIN_ENCRYPTION_KEY
+```
 
-## Deploy on Vercel
+## Development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cd garmin-sync-web
+npm install
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Credits
+
+- Exercise data: [GarminExercisesCollector](https://github.com/maximecharriere/GarminExercisesCollector) by maximecharriere
+- Garmin auth: [garth](https://github.com/matin/garth) library
