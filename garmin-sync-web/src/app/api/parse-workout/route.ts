@@ -50,8 +50,9 @@ const EXERCISE_ALIASES: Record<string, string> = {
   'dead hang': 'bar holds',  // closest match - passive hang
   'hanging': 'bar holds',
 
-  // Plurals
-  'bird dogs': 'bird dog',
+  // Core stability (bird dog → dead bug, similar exercises)
+  'bird dog': 'dead bug',
+  'bird dogs': 'dead bug',
   'dead bugs': 'dead bug',
   'mountain climbers': 'mountain climber',
   'lunges': 'lunge',
