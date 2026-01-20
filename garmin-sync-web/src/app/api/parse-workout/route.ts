@@ -1,86 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { findGarminExercise } from '@/lib/garmin-exercises'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
 
-// Map common exercise names to Garmin's exact IDs
-const EXERCISE_CATEGORIES: Record<string, [string, string]> = {
-  'bench press': ['BENCH_PRESS', 'BARBELL_BENCH_PRESS'],
-  'barbell bench press': ['BENCH_PRESS', 'BARBELL_BENCH_PRESS'],
-  'dumbbell bench press': ['BENCH_PRESS', 'DUMBBELL_BENCH_PRESS'],
-  'incline bench': ['BENCH_PRESS', 'INCLINE_DUMBBELL_BENCH_PRESS'],
-  'incline bench press': ['BENCH_PRESS', 'INCLINE_DUMBBELL_BENCH_PRESS'],
-  'squat': ['SQUAT', 'BARBELL_BACK_SQUAT'],
-  'back squat': ['SQUAT', 'BARBELL_BACK_SQUAT'],
-  'front squat': ['SQUAT', 'BARBELL_FRONT_SQUAT'],
-  'goblet squat': ['SQUAT', 'GOBLET_SQUAT'],
-  'deadlift': ['DEADLIFT', 'BARBELL_DEADLIFT'],
-  'romanian deadlift': ['DEADLIFT', 'ROMANIAN_DEADLIFT'],
-  'rdl': ['DEADLIFT', 'ROMANIAN_DEADLIFT'],
-  'sumo deadlift': ['DEADLIFT', 'SUMO_DEADLIFT'],
-  'overhead press': ['SHOULDER_PRESS', 'OVERHEAD_BARBELL_PRESS'],
-  'ohp': ['SHOULDER_PRESS', 'OVERHEAD_BARBELL_PRESS'],
-  'shoulder press': ['SHOULDER_PRESS', 'OVERHEAD_BARBELL_PRESS'],
-  'military press': ['SHOULDER_PRESS', 'OVERHEAD_BARBELL_PRESS'],
-  'dumbbell shoulder press': ['SHOULDER_PRESS', 'DUMBBELL_SHOULDER_PRESS'],
-  'barbell row': ['ROW', 'BENT_OVER_ROW'],
-  'bent over row': ['ROW', 'BENT_OVER_ROW'],
-  'dumbbell row': ['ROW', 'ONE_ARM_DUMBBELL_ROW'],
-  'cable row': ['ROW', 'SEATED_CABLE_ROW'],
-  'seated row': ['ROW', 'SEATED_CABLE_ROW'],
-  'pull up': ['PULL_UP', 'PULL_UP'],
-  'pullup': ['PULL_UP', 'PULL_UP'],
-  'chin up': ['PULL_UP', 'CHIN_UP'],
-  'chinup': ['PULL_UP', 'CHIN_UP'],
-  'lat pulldown': ['PULL_UP', 'LAT_PULLDOWN'],
-  'bicep curl': ['CURL', 'BARBELL_BICEPS_CURL'],
-  'barbell curl': ['CURL', 'BARBELL_BICEPS_CURL'],
-  'dumbbell curl': ['CURL', 'DUMBBELL_BICEPS_CURL'],
-  'hammer curl': ['CURL', 'HAMMER_CURL'],
-  'preacher curl': ['CURL', 'PREACHER_CURL'],
-  'tricep pushdown': ['TRICEPS_EXTENSION', 'TRICEPS_PRESSDOWN'],
-  'triceps pushdown': ['TRICEPS_EXTENSION', 'TRICEPS_PRESSDOWN'],
-  'tricep extension': ['TRICEPS_EXTENSION', 'OVERHEAD_TRICEPS_EXTENSION'],
-  'triceps extension': ['TRICEPS_EXTENSION', 'OVERHEAD_TRICEPS_EXTENSION'],
-  'skull crusher': ['TRICEPS_EXTENSION', 'LYING_TRICEPS_EXTENSION'],
-  'close grip bench': ['TRICEPS_EXTENSION', 'CLOSE_GRIP_BENCH_PRESS'],
-  'leg press': ['SQUAT', 'LEG_PRESS'],
-  'leg curl': ['LEG_CURL', 'LYING_LEG_CURL'],
-  'leg extension': ['LEG_CURL', 'LEG_EXTENSION'],
-  'calf raise': ['CALF_RAISE', 'STANDING_CALF_RAISE'],
-  'standing calf raise': ['CALF_RAISE', 'STANDING_CALF_RAISE'],
-  'seated calf raise': ['CALF_RAISE', 'SEATED_CALF_RAISE'],
-  'plank': ['PLANK', 'PLANK'],
-  'crunch': ['CRUNCH', 'CRUNCH'],
-  'farmer walk': ['CARRY', 'FARMERS_WALK'],
-  'farmers walk': ['CARRY', 'FARMERS_WALK'],
-  'farmer carry': ['CARRY', 'FARMERS_WALK'],
-  'farmers carry': ['CARRY', 'FARMERS_WALK'],
-  "farmer's walk": ['CARRY', 'FARMERS_WALK'],
-  "farmer's carry": ['CARRY', 'FARMERS_WALK'],
-  'lunge': ['LUNGE', 'DUMBBELL_LUNGE'],
-  'walking lunge': ['LUNGE', 'WALKING_LUNGE'],
-  'lateral raise': ['SHOULDER_PRESS', 'LATERAL_RAISE'],
-  'face pull': ['ROW', 'FACE_PULL'],
-  'shrug': ['SHRUG', 'BARBELL_SHRUG'],
-  'dip': ['TRICEPS_EXTENSION', 'DIPS'],
-  'dips': ['TRICEPS_EXTENSION', 'DIPS'],
-  'hip thrust': ['HIP_RAISE', 'BARBELL_HIP_THRUST'],
-  // Core exercises
-  'bird dog': ['CORE', 'BIRD_DOG'],
-  'bird dogs': ['CORE', 'BIRD_DOG'],
-  'dead bug': ['CORE', 'DEAD_BUG'],
-  'dead bugs': ['CORE', 'DEAD_BUG'],
-  'russian twist': ['CORE', 'RUSSIAN_TWIST'],
-  'mountain climber': ['CORE', 'MOUNTAIN_CLIMBER'],
-  'mountain climbers': ['CORE', 'MOUNTAIN_CLIMBER'],
-  'ab wheel': ['CORE', 'AB_WHEEL'],
-  'ab rollout': ['CORE', 'AB_WHEEL'],
-  'hanging leg raise': ['CORE', 'HANGING_LEG_RAISE'],
-  'leg raise': ['CORE', 'LYING_LEG_RAISE'],
-  'side plank': ['PLANK', 'SIDE_PLANK'],
-  'pallof press': ['CORE', 'PALLOF_PRESS'],
+// Common aliases not in the Garmin database
+const EXERCISE_ALIASES: Record<string, string> = {
+  // Abbreviations
+  'rdl': 'romanian deadlift',
+  'ohp': 'overhead press',
+  'ghr': 'ghd sit-ups',
+  'db': 'dumbbell',
+
+  // Compound words (no space/hyphen variants)
+  'pullup': 'pull-up',
+  'pullups': 'pull-up',
+  'chinup': 'chin-up',
+  'chinups': 'chin-up',
+  'pushup': 'push-up',
+  'pushups': 'push-up',
+  'pulldown': 'lat pull-down',
+  'lat pulldown': 'lat pull-down',
+  'deadlift': 'barbell deadlift',
+
+  // Farmer's walk variants
+  'farmers walk': "farmer's walk",
+  'farmer walk': "farmer's walk",
+  'farmers carry': "farmer's carry",
+  'farmer carry': "farmer's carry",
+
+  // Bench press variants
+  'dumbbell press': 'dumbbell bench press',
+  'db press': 'dumbbell bench press',
+  'db bench': 'dumbbell bench press',
+  'incline db press': 'incline dumbbell bench press',
+  'incline dumbbell press': 'incline dumbbell bench press',
+  'flat bench': 'barbell bench press',
+
+  // Deadlift variants
+  'trap bar deadlift': 'trap-bar deadlift',
+  'hex bar deadlift': 'trap-bar deadlift',
+
+  // Other common names
+  'skull crushers': 'lying triceps extension',
+  'skullcrushers': 'lying triceps extension',
+  'glute ham raise': 'ghd sit-ups',
+  'glute ham developer': 'ghd sit-ups',
+  'dead hang': 'bar holds',  // closest match - passive hang
+  'hanging': 'bar holds',
+
+  // Plurals
+  'bird dogs': 'bird dog',
+  'dead bugs': 'dead bug',
+  'mountain climbers': 'mountain climber',
+  'lunges': 'lunge',
+  'squats': 'squat',
+  'curls': 'curl',
+  'rows': 'row',
+  'dips': 'dip',
+  'shrugs': 'shrug',
 }
 
 // Distance-based exercises (use meters instead of reps)
@@ -170,25 +149,23 @@ export async function POST(request: NextRequest) {
     try {
       const parsed = JSON.parse(textResult.trim())
 
-      // Map exercise names to Garmin IDs
+      // Map exercise names to Garmin IDs using 1,500+ exercise database
       for (const ex of parsed.exercises || []) {
-        const nameLower = ex.name.toLowerCase()
-        const mapping = EXERCISE_CATEGORIES[nameLower]
-        if (mapping) {
-          ex.category = mapping[0]
-          ex.garmin_name = mapping[1]
+        let nameLower = ex.name.toLowerCase().trim()
+
+        // Check aliases first (e.g., "rdl" -> "romanian deadlift")
+        if (EXERCISE_ALIASES[nameLower]) {
+          nameLower = EXERCISE_ALIASES[nameLower]
+        }
+
+        // Look up in Garmin exercise database
+        const match = findGarminExercise(nameLower)
+        if (match) {
+          ex.category = match.category
+          ex.garmin_name = match.garminName
         } else {
-          // Try partial matching
-          const partialMatch = Object.entries(EXERCISE_CATEGORIES).find(([key]) =>
-            nameLower.includes(key) || key.includes(nameLower)
-          )
-          if (partialMatch) {
-            ex.category = partialMatch[1][0]
-            ex.garmin_name = partialMatch[1][1]
-          } else {
-            ex.category = 'OTHER'
-            ex.garmin_name = 'OTHER'
-          }
+          ex.category = 'OTHER'
+          ex.garmin_name = 'OTHER'
         }
       }
 
