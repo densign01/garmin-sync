@@ -110,6 +110,100 @@ class PushWorkoutRequest(BaseModel):
     workout: dict
 
 
+class TokenRequest(BaseModel):
+    tokens_encrypted: str
+
+
+@app.post("/api/activities/with-tokens")
+async def list_activities_with_tokens(request: TokenRequest, limit: int = 20, activity_type: str | None = "strength_training") -> list[dict]:
+    """List activities using provided encrypted tokens (for serverless deployment)."""
+    try:
+        tokens_str = decrypt_tokens(request.tokens_encrypted)
+        garth.client.loads(tokens_str)
+
+        activities = garth.connectapi(
+            "/activitylist-service/activities/search/activities",
+            params={
+                "limit": limit,
+                "activityType": activity_type,
+            },
+        )
+        return activities if isinstance(activities, list) else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/activities/{activity_id}/export-with-tokens")
+async def export_activity_with_tokens(activity_id: int, request: TokenRequest) -> dict:
+    """Export activity data using provided encrypted tokens."""
+    try:
+        tokens_str = decrypt_tokens(request.tokens_encrypted)
+        garth.client.loads(tokens_str)
+
+        # Get activity details
+        details = garth.connectapi(f"/activity-service/activity/{activity_id}")
+
+        # Get exercise data
+        exercises_response = garth.connectapi(
+            f"/activity-service/activity/{activity_id}/exerciseSets"
+        )
+
+        if isinstance(details, str):
+            raise HTTPException(status_code=500, detail=f"Garmin API error: {details}")
+
+        if isinstance(exercises_response, dict):
+            exercises_data = exercises_response.get("exerciseSets", [])
+        elif isinstance(exercises_response, list):
+            exercises_data = exercises_response
+        else:
+            exercises_data = []
+
+        summary = details.get("summaryDTO", {})
+
+        export = {
+            "workout_name": details.get("activityName"),
+            "date": summary.get("startTimeLocal"),
+            "duration_minutes": round(summary.get("duration", 0) / 60, 1),
+            "total_sets": summary.get("totalSets", 0),
+            "total_reps": summary.get("totalExerciseReps", 0),
+            "exercises": [],
+        }
+
+        current_exercise = None
+        for ex_set in exercises_data:
+            if ex_set.get("setType") == "REST":
+                continue
+
+            ex_info = ex_set.get("exercises", [{}])[0] if ex_set.get("exercises") else {}
+            category = ex_info.get("category", "UNKNOWN")
+            name = ex_info.get("name") or category
+
+            weight_grams = ex_set.get("weight", 0) or 0
+            weight_lbs = round(weight_grams / 453.592, 1) if weight_grams else None
+
+            if current_exercise is None or current_exercise["name"] != name:
+                if current_exercise:
+                    export["exercises"].append(current_exercise)
+                current_exercise = {
+                    "name": name,
+                    "category": category,
+                    "sets": [],
+                }
+
+            current_exercise["sets"].append({
+                "reps": ex_set.get("repetitionCount"),
+                "weight_lbs": weight_lbs,
+                "duration_seconds": round(ex_set.get("duration", 0)) if ex_set.get("duration") else None,
+            })
+
+        if current_exercise:
+            export["exercises"].append(current_exercise)
+
+        return export
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/workouts/push")
 async def push_workout_with_tokens(request: PushWorkoutRequest) -> dict:
     """Push workout using provided encrypted tokens."""
