@@ -121,14 +121,22 @@ async def list_activities_with_tokens(request: TokenRequest, limit: int = 20, ac
         tokens_str = decrypt_tokens(request.tokens_encrypted)
         garth.client.loads(tokens_str)
 
+        # Fetch all activities, then filter client-side (Garmin doesn't accept activityType param)
         activities = garth.connectapi(
-            "/activitylist-service/activities/search/activities",
-            params={
-                "limit": limit,
-                "activityType": activity_type,
-            },
+            f"/activitylist-service/activities/search/activities?limit={limit}",
         )
-        return activities if isinstance(activities, list) else []
+
+        if not isinstance(activities, list):
+            return []
+
+        # Filter by activity type if specified
+        if activity_type:
+            activities = [
+                a for a in activities
+                if a.get("activityType", {}).get("typeKey") == activity_type
+            ]
+
+        return activities
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
