@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Command,
   CommandEmpty,
@@ -72,10 +72,36 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
   // Local state for dropdown open/closed
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Determine if this exercise uses distance (farmer's walk, etc.) or reps
   const isDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
   const [mode, setMode] = useState<'reps' | 'distance'>(isDistanceMode ? 'distance' : 'reps')
+
+  // Sync mode state when exercise.distance_meters changes externally
+  useEffect(() => {
+    const shouldBeDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
+    if (shouldBeDistanceMode && mode !== 'distance') {
+      setMode('distance')
+    } else if (!shouldBeDistanceMode && mode !== 'reps') {
+      setMode('reps')
+    }
+  }, [exercise.distance_meters, mode])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!dropdownOpen) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+        setSearchQuery('')
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
 
   // Get confidence badge color
   const confidenceBadge = useMemo(() => {
@@ -183,7 +209,7 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
 
           {/* Exercise dropdown with confidence badge */}
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+            <div ref={dropdownRef} className="relative flex-1">
               {/* Dropdown trigger */}
               <button
                 type="button"

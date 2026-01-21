@@ -14,7 +14,7 @@ type ParsedWorkout = {
   exercises: Exercise[]
 }
 
-// Warning type from parse API (kept for logging purposes)
+// Warning type from parse API (passed to push endpoint for logging)
 type ExerciseWarning = {
   exercise: string
   message: string
