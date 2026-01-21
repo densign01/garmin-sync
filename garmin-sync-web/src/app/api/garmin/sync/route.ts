@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000'
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://localhost:8000'
 
 type GarminActivity = {
   activityId: number
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get recent activities from FastAPI with tokens
-    const activitiesRes = await fetch(`${FASTAPI_URL}/api/activities/with-tokens?limit=20`, {
+    const activitiesRes = await fetch(`${PYTHON_API_URL}/api/activities/with-tokens?limit=20`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tokens_encrypted: tokenData.tokens_encrypted }),
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     for (const activity of newActivities) {
       try {
         // Get detailed exercise data with tokens
-        const detailsRes = await fetch(`${FASTAPI_URL}/api/activities/${activity.activityId}/export-with-tokens`, {
+        const detailsRes = await fetch(`${PYTHON_API_URL}/api/activities/${activity.activityId}/export-with-tokens`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tokens_encrypted: tokenData.tokens_encrypted }),
