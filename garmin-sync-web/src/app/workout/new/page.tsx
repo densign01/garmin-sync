@@ -7,43 +7,18 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-
-type ExerciseSuggestion = {
-  name: string
-  category: string
-  garminName: string
-  score: number
-}
-
-type ExerciseWarning = {
-  exercise: string
-  message: string
-  suggestions: ExerciseSuggestion[]
-}
-
-type ExerciseOverride = {
-  garmin_name: string
-  garmin_display_name: string
-  category: string
-  confidence: 'exact' | 'high' | 'medium' | 'low' | 'none'
-}
-
-type Exercise = {
-  name: string
-  sets: number
-  reps: number
-  weight_lbs?: number
-  rest_seconds: number
-  category?: string
-  garmin_name?: string
-  garmin_display_name?: string
-  confidence?: 'exact' | 'high' | 'medium' | 'low' | 'none'
-  distance_meters?: number  // For distance-based exercises like farmer's carry
-}
+import { ExerciseMappingRow, type Exercise } from '@/components/exercise-mapping-row'
 
 type ParsedWorkout = {
   name: string
   exercises: Exercise[]
+}
+
+// Warning type from parse API (kept for logging purposes)
+type ExerciseWarning = {
+  exercise: string
+  message: string
+  suggestions: { name: string; category: string; garminName: string; score: number }[]
 }
 
 const REST_TIME_OPTIONS = [
@@ -96,8 +71,6 @@ function NewWorkoutContent() {
   const [rawText, setRawText] = useState('')
   const [parsed, setParsed] = useState<ParsedWorkout | null>(null)
   const [warnings, setWarnings] = useState<ExerciseWarning[]>([])
-  const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, ExerciseOverride>>({})
-  const [expandedExercise, setExpandedExercise] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [pushing, setPushing] = useState(false)
   const [error, setError] = useState('')
@@ -146,38 +119,12 @@ function NewWorkoutContent() {
     }
   }, [searchParams])
 
-  // Get effective exercise data (with any user overrides applied)
-  function getEffectiveExercise(ex: Exercise): Exercise {
-    const override = exerciseOverrides[ex.name]
-    if (override) {
-      return {
-        ...ex,
-        garmin_name: override.garmin_name,
-        garmin_display_name: override.garmin_display_name,
-        category: override.category,
-        confidence: override.confidence,
-      }
-    }
-    return ex
-  }
-
-  // Handle swapping an exercise to a suggested match
-  function handleSwapExercise(exerciseName: string, suggestion: ExerciseSuggestion) {
-    setExerciseOverrides(prev => ({
-      ...prev,
-      [exerciseName]: {
-        garmin_name: suggestion.garminName,
-        garmin_display_name: suggestion.name,
-        category: suggestion.category,
-        confidence: 'high', // User explicitly confirmed this match
-      },
-    }))
-    setExpandedExercise(null)
-  }
-
-  // Find warnings/suggestions for a specific exercise
-  function getExerciseWarning(exerciseName: string): ExerciseWarning | undefined {
-    return warnings.find(w => w.exercise.toLowerCase() === exerciseName.toLowerCase())
+  // Handle exercise change from ExerciseMappingRow
+  function handleExerciseChange(index: number, updated: Exercise) {
+    if (!parsed) return
+    const newExercises = [...parsed.exercises]
+    newExercises[index] = updated
+    setParsed({ ...parsed, exercises: newExercises })
   }
 
   async function handleParse() {
@@ -185,8 +132,6 @@ function NewWorkoutContent() {
     setError('')
     setParsed(null)
     setWarnings([])
-    setExerciseOverrides({})
-    setExpandedExercise(null)
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -249,13 +194,9 @@ function NewWorkoutContent() {
         return
       }
 
-      // Apply overrides to exercises before building Garmin workout
-      const effectiveWorkout = {
-        ...parsed,
-        exercises: parsed.exercises.map(ex => getEffectiveExercise(ex)),
-      }
       // Convert to Garmin format and send to Python API
-      const garminWorkout = buildGarminWorkout(effectiveWorkout)
+      // (exercises are edited in-place via ExerciseMappingRow)
+      const garminWorkout = buildGarminWorkout(parsed)
       const res = await fetch('/api/garmin/push-workout', {
         method: 'POST',
         headers: {
@@ -471,110 +412,26 @@ Lateral Raises 3x15…`}
             <CardHeader>
               <CardTitle>Preview: {parsed.name}</CardTitle>
               <CardDescription>
-                Review your workout before pushing to Garmin
+                Review and edit your workout before pushing to Garmin
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 mb-6">
-                {parsed.exercises.map((ex, i) => {
-                  const effective = getEffectiveExercise(ex)
-                  const warning = getExerciseWarning(ex.name)
-                  const hasOverride = !!exerciseOverrides[ex.name]
-                  const showSuggestions = warning && warning.suggestions.length > 0 && !hasOverride
-                  const isExpanded = expandedExercise === ex.name
+              {/* Two-column header */}
+              <div className="hidden sm:flex text-xs text-muted-foreground font-medium mb-2 px-1">
+                <div className="w-1/3">YOUR INPUT</div>
+                <div className="w-2/3 pl-6">GARMIN MAPPING</div>
+              </div>
 
-                  return (
-                    <div
-                      key={i}
-                      className={`p-3 rounded-lg ${
-                        showSuggestions ? 'bg-amber-50 border border-amber-200' : 'bg-muted'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium capitalize">{ex.name}</span>
-                          <span className="text-muted-foreground ml-2">
-                            {ex.distance_meters
-                              ? `${ex.sets}× ${Math.round(ex.distance_meters * 1.094)} yds`
-                              : `${ex.sets}×${ex.reps}`}
-                            {ex.weight_lbs && ` @ ${ex.weight_lbs} lbs`}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {/* Current match badge */}
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            effective.confidence === 'exact' || effective.confidence === 'high'
-                              ? 'bg-green-100 text-green-700'
-                              : effective.confidence === 'medium'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            {effective.garmin_name === 'CORE' && effective.category === 'CORE'
-                              ? 'Custom'
-                              : effective.garmin_display_name || effective.garmin_name?.replace(/_/g, ' ')}
-                          </span>
-                          {/* Expand/collapse suggestions button */}
-                          {showSuggestions && (
-                            <button
-                              type="button"
-                              onClick={() => setExpandedExercise(isExpanded ? null : ex.name)}
-                              className="text-xs text-amber-600 hover:text-amber-800 underline"
-                            >
-                              {isExpanded ? 'hide' : 'swap?'}
-                            </button>
-                          )}
-                          {/* Show checkmark if user confirmed a swap */}
-                          {hasOverride && (
-                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Inline suggestions when expanded */}
-                      {showSuggestions && isExpanded && (
-                        <div className="mt-2 pt-2 border-t border-amber-200">
-                          <p className="text-xs text-amber-700 mb-2">Select a better match:</p>
-                          <div className="flex flex-wrap gap-2">
-                            {warning.suggestions.map((suggestion, j) => (
-                              <button
-                                key={j}
-                                type="button"
-                                onClick={() => handleSwapExercise(ex.name, suggestion)}
-                                className="text-xs px-2 py-1 rounded bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-colors"
-                              >
-                                {suggestion.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {ex.rest_seconds}s rest
-                        </span>
-                        {isMajorLift(ex.name) && (
-                          <span className="text-blue-600 dark:text-blue-400">Major lift</span>
-                        )}
-                        {isUnilateral(ex.name) && (
-                          <span className="text-orange-600 dark:text-orange-400">
-                            Per-side ({unilateralMode === 'double_sets' ? '2× sets' : '2× reps'})
-                          </span>
-                        )}
-                        {ex.distance_meters && (
-                          <span className="text-green-600 dark:text-green-400">
-                            Distance-based
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+              {/* Exercise mapping rows */}
+              <div className="mb-6">
+                {parsed.exercises.map((ex, i) => (
+                  <ExerciseMappingRow
+                    key={i}
+                    exercise={ex}
+                    index={i}
+                    onChange={handleExerciseChange}
+                  />
+                ))}
               </div>
 
               <Button
