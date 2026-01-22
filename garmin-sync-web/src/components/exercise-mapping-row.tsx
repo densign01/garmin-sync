@@ -28,13 +28,15 @@ export type Exercise = {
   distance_meters?: number
 }
 
-type ExerciseMappingRowProps = {
+export type ExerciseMappingRowProps = {
   /** The parsed exercise from user input */
   exercise: Exercise
   /** Index in the exercise list */
   index: number
   /** Callback when any field changes */
   onChange: (index: number, updated: Exercise) => void
+  /** Whether this is the last item in the list */
+  isLast?: boolean
 }
 
 // -----------------------------------------------------------------------------
@@ -68,37 +70,22 @@ const EXERCISE_OPTIONS = Object.entries(GARMIN_EXERCISES).map(([key, [category, 
 // Component
 // -----------------------------------------------------------------------------
 
-export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappingRowProps) {
-  // Local state for dropdown open/closed
+export function ExerciseMappingRow({ exercise, index, onChange, isLast }: ExerciseMappingRowProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Determine if this exercise uses distance (farmer's walk, etc.) or reps
-  const isDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
-  const [mode, setMode] = useState<'reps' | 'distance'>(isDistanceMode ? 'distance' : 'reps')
+  // Determine if this exercise uses distance
+  const mode: 'reps' | 'distance' = (exercise.distance_meters && exercise.distance_meters > 0) ? 'distance' : 'reps'
 
-  // Sync mode state when exercise.distance_meters changes externally
-  useEffect(() => {
-    const shouldBeDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
-    if (shouldBeDistanceMode && mode !== 'distance') {
-      setMode('distance')
-    } else if (!shouldBeDistanceMode && mode !== 'reps') {
-      setMode('reps')
-    }
-  }, [exercise.distance_meters, mode])
-
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!dropdownOpen) return
-
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false)
         setSearchQuery('')
       }
     }
-
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [dropdownOpen])
@@ -108,20 +95,20 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
     switch (exercise.confidence) {
       case 'exact':
       case 'high':
-        return { color: 'bg-green-100 text-green-700', emoji: '🟢' }
+        return { color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', emoji: '✓' }
       case 'medium':
-        return { color: 'bg-amber-100 text-amber-700', emoji: '🟡' }
+        return { color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', emoji: '?' }
       default:
-        return { color: 'bg-red-100 text-red-700', emoji: '🔴' }
+        return { color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', emoji: '!' }
     }
   }, [exercise.confidence])
 
-  // Current display name for the selected exercise
+  // Current display name
   const selectedDisplayName = exercise.garmin_display_name ||
     exercise.garmin_name?.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) ||
     'Select exercise...'
 
-  // Filter exercises based on search query (limit to 100 for performance)
+  // Filter exercises
   const filteredExercises = useMemo(() => {
     if (!searchQuery.trim()) {
       return EXERCISE_OPTIONS.slice(0, 100)
@@ -132,7 +119,7 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
       .slice(0, 100)
   }, [searchQuery])
 
-  // Handle exercise selection from dropdown
+  // Handle select
   const handleSelectExercise = useCallback((exerciseKey: string) => {
     const selected = EXERCISE_OPTIONS.find(ex => ex.key === exerciseKey)
     if (selected) {
@@ -141,14 +128,14 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
         garmin_name: selected.garminName,
         garmin_display_name: selected.displayName,
         category: selected.category,
-        confidence: 'high', // User explicitly selected, so high confidence
+        confidence: 'high',
       })
     }
     setDropdownOpen(false)
     setSearchQuery('')
   }, [exercise, index, onChange])
 
-  // Handle field changes
+  // Handlers
   const handleSetsChange = (value: string) => {
     const sets = parseInt(value, 10) || 1
     onChange(index, { ...exercise, sets: Math.max(1, sets) })
@@ -170,38 +157,32 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
   }
 
   const handleDistanceChange = (value: string) => {
-    // Input is in yards, convert to meters for storage
     const yards = parseInt(value, 10) || 0
     const meters = Math.round(yards * 0.9144)
     onChange(index, { ...exercise, distance_meters: meters })
   }
 
-  // Handle mode toggle (reps <-> distance)
   const handleModeChange = (newMode: 'reps' | 'distance') => {
-    setMode(newMode)
     if (newMode === 'distance' && !exercise.distance_meters) {
-      // Default to 40 yards (37 meters) when switching to distance
       onChange(index, { ...exercise, distance_meters: 37, reps: 1 })
     } else if (newMode === 'reps' && exercise.distance_meters) {
-      // Clear distance when switching to reps
       onChange(index, { ...exercise, distance_meters: undefined, reps: exercise.reps || 10 })
     }
   }
 
-  // Convert meters to yards for display
   const distanceYards = exercise.distance_meters ? Math.round(exercise.distance_meters * 1.094) : ''
 
   return (
-    <div className="py-4 border-b border-border last:border-b-0">
+    <div className={`space-y-3 ${isLast ? '' : ''}`}>
       {/* Two-column layout: Input → Mapping */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
 
         {/* LEFT: Original input (read-only) */}
-        <div className="sm:w-1/3 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground font-medium capitalize">
+        <div className="sm:w-1/3 pt-2">
+          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-medium capitalize">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
             {exercise.name}
-          </span>
-          <span className="text-muted-foreground">→</span>
+          </div>
         </div>
 
         {/* RIGHT: Garmin mapping (editable) */}
@@ -210,15 +191,16 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
           {/* Exercise dropdown with confidence badge */}
           <div className="flex items-center gap-2">
             <div ref={dropdownRef} className="relative flex-1">
-              {/* Dropdown trigger */}
               <button
                 type="button"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm border rounded-md bg-background hover:bg-accent/50 transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
-                <span className="truncate">{selectedDisplayName}</span>
+                <span className={`truncate ${!exercise.garmin_name ? 'text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                  {selectedDisplayName}
+                </span>
                 <svg
-                  className={`w-4 h-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -227,27 +209,28 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
                 </svg>
               </button>
 
-              {/* Dropdown menu */}
               {dropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg">
-                  <Command shouldFilter={false}>
+                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <Command shouldFilter={false} className="bg-transparent">
                     <CommandInput
                       placeholder="Search exercises..."
                       value={searchQuery}
                       onValueChange={setSearchQuery}
+                      className="border-none focus:ring-0"
                     />
-                    <CommandList>
-                      <CommandEmpty>No exercises found.</CommandEmpty>
+                    <CommandList className="max-h-[200px] overflow-y-auto p-1">
+                      <CommandEmpty className="py-2 text-sm text-center text-slate-500">No exercises found.</CommandEmpty>
                       <CommandGroup>
                         {filteredExercises.map((ex) => (
                           <CommandItem
                             key={ex.key}
                             value={ex.key}
                             onSelect={handleSelectExercise}
+                            className="flex items-center justify-between px-2 py-1.5 rounded-md aria-selected:bg-indigo-50 dark:aria-selected:bg-indigo-900/30 aria-selected:text-indigo-900 dark:aria-selected:text-indigo-100 cursor-pointer"
                           >
                             {ex.displayName}
                             {ex.key === exercise.garmin_name?.toLowerCase().replace(/_/g, ' ') && (
-                              <svg className="ml-auto w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -261,97 +244,92 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
             </div>
 
             {/* Confidence badge */}
-            <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${confidenceBadge.color}`}>
+            <span className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold ${confidenceBadge.color}`} title={`Confidence: ${exercise.confidence}`}>
               {confidenceBadge.emoji}
             </span>
           </div>
 
           {/* Sets, Reps/Distance, Weight row */}
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          {/* Stats Row */}
+          <div className="flex items-center gap-3 pt-2">
             {/* Sets */}
-            <label className="flex items-center gap-1">
-              <span className="text-muted-foreground">Sets</span>
+            <div className="relative group">
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                Sets
+              </label>
               <input
                 type="number"
                 min="1"
                 max="99"
                 value={exercise.sets}
                 onChange={(e) => handleSetsChange(e.target.value)}
-                className="w-12 px-2 py-1 border rounded-md text-center bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-16 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
               />
-            </label>
+            </div>
 
-            {/* Reps/Distance toggle */}
-            <div className="flex items-center gap-2 border rounded-md px-2 py-1 bg-muted/30">
-              <label className="flex items-center gap-1 cursor-pointer">
+            {/* Reps / Distance */}
+            <div className="relative group">
+              <div className="absolute -top-2 left-0 w-full flex justify-center z-10">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange(mode === 'reps' ? 'distance' : 'reps')}
+                  className="px-1.5 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 uppercase tracking-wider transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded cursor-pointer"
+                  title="Click to toggle Reps/Distance"
+                >
+                  {mode === 'reps' ? 'Reps' : 'Dist'}
+                </button>
+              </div>
+
+              {mode === 'reps' ? (
                 <input
-                  type="radio"
-                  name={`mode-${index}`}
-                  checked={mode === 'reps'}
-                  onChange={() => handleModeChange('reps')}
-                  className="w-3 h-3"
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={exercise.reps}
+                  onChange={(e) => handleRepsChange(e.target.value)}
+                  className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                  placeholder="Reps"
                 />
-                <span className="text-muted-foreground">Reps</span>
-                {mode === 'reps' && (
+              ) : (
+                <div className="relative">
                   <input
                     type="number"
                     min="1"
-                    max="999"
-                    value={exercise.reps}
-                    onChange={(e) => handleRepsChange(e.target.value)}
-                    className="w-12 px-2 py-1 border rounded-md text-center bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    max="9999"
+                    value={distanceYards}
+                    onChange={(e) => handleDistanceChange(e.target.value)}
+                    className="w-24 px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
                   />
-                )}
-              </label>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="radio"
-                  name={`mode-${index}`}
-                  checked={mode === 'distance'}
-                  onChange={() => handleModeChange('distance')}
-                  className="w-3 h-3"
-                />
-                <span className="text-muted-foreground">Dist</span>
-                {mode === 'distance' && (
-                  <>
-                    <input
-                      type="number"
-                      min="1"
-                      max="9999"
-                      value={distanceYards}
-                      onChange={(e) => handleDistanceChange(e.target.value)}
-                      className="w-14 px-2 py-1 border rounded-md text-center bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                    <span className="text-muted-foreground text-xs">yds</span>
-                  </>
-                )}
-              </label>
+                  <span className="absolute right-3 top-2 text-xs text-slate-400 pointer-events-none">yd</span>
+                </div>
+              )}
             </div>
 
             {/* Weight */}
-            <label className="flex items-center gap-1">
-              <span className="text-muted-foreground">Weight</span>
+            <div className="relative group">
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                Lbs
+              </label>
               <input
                 type="number"
                 min="0"
                 max="9999"
                 value={exercise.weight_lbs ?? ''}
                 onChange={(e) => handleWeightChange(e.target.value)}
-                placeholder=""
-                className="w-16 px-2 py-1 border rounded-md text-center bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="—"
+                className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm placeholder:text-slate-300"
               />
-              <span className="text-muted-foreground text-xs">lbs</span>
-            </label>
-          </div>
+            </div>
 
-          {/* Rest time */}
-          <div className="flex items-center gap-2 text-sm">
-            <label className="flex items-center gap-1">
-              <span className="text-muted-foreground">Rest</span>
+            {/* Rest */}
+            <div className="relative group">
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                Rest
+              </label>
               <select
                 value={exercise.rest_seconds}
                 onChange={(e) => handleRestChange(e.target.value)}
-                className="px-2 py-1 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-20 px-2 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer text-sm text-center appearance-none"
               >
                 {REST_TIME_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -359,8 +337,9 @@ export function ExerciseMappingRow({ exercise, index, onChange }: ExerciseMappin
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
+
         </div>
       </div>
     </div>
