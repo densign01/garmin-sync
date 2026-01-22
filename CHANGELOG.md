@@ -14,6 +14,16 @@ All notable changes to Garmin Sync.
 - Click-outside-to-close for exercise dropdown
 - Mode state sync when exercise changes externally
 
+### Changed
+- Premium UI redesign across all pages
+  - Dashboard: gradient header, abstract background shapes, card shadows
+  - Activity detail: two-column actual vs planned comparison
+  - Workout creation: floating input labels, improved settings panel
+- Indigo accent colors replace blue for hover/focus states
+- Rounded corners increased (rounded-xl → rounded-3xl)
+- Better loading spinners and empty states
+- Mobile-responsive date badges and activity cards
+
 ### Fixed
 - Dropdown now closes when clicking outside
 - Reps/distance mode stays in sync with exercise data
