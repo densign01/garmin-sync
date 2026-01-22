@@ -251,7 +251,8 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
           </div>
 
           {/* Sets, Reps/Distance, Weight row */}
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          {/* Stats Row */}
+          <div className="flex items-center gap-3 pt-2">
             {/* Sets */}
             <div className="relative group">
               <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -263,58 +264,53 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                 max="99"
                 value={exercise.sets}
                 onChange={(e) => handleSetsChange(e.target.value)}
-                className="w-16 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                className="w-16 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
               />
             </div>
 
-            {/* Reps/Distance toggle */}
-            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                onClick={() => handleModeChange('reps')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${mode === 'reps' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-              >
-                Reps
-              </button>
-              <button
-                type="button"
-                onClick={() => handleModeChange('distance')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${mode === 'distance' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-              >
-                Dist
-              </button>
-            </div>
+            {/* Reps / Distance */}
+            <div className="relative group">
+              <div className="absolute -top-2 left-0 w-full flex justify-center z-10">
+                <button
+                  type="button"
+                  onClick={() => handleModeChange(mode === 'reps' ? 'distance' : 'reps')}
+                  className="px-1.5 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 uppercase tracking-wider transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded cursor-pointer"
+                  title="Click to toggle Reps/Distance"
+                >
+                  {mode === 'reps' ? 'Reps' : 'Dist'}
+                </button>
+              </div>
 
-            {mode === 'reps' ? (
-              <div className="relative">
+              {mode === 'reps' ? (
                 <input
                   type="number"
                   min="1"
                   max="999"
                   value={exercise.reps}
                   onChange={(e) => handleRepsChange(e.target.value)}
-                  className="w-16 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                  className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
                   placeholder="Reps"
                 />
-              </div>
-            ) : (
-              <div className="relative flex items-center">
-                <input
-                  type="number"
-                  min="1"
-                  max="9999"
-                  value={distanceYards}
-                  onChange={(e) => handleDistanceChange(e.target.value)}
-                  className="w-20 px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
-                />
-                <span className="absolute right-3 text-xs text-slate-400 pointer-events-none">yd</span>
-              </div>
-            )}
-
-            <span className="text-slate-300 dark:text-slate-700">×</span>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="9999"
+                    value={distanceYards}
+                    onChange={(e) => handleDistanceChange(e.target.value)}
+                    className="w-24 px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                  />
+                  <span className="absolute right-3 top-2 text-xs text-slate-400 pointer-events-none">yd</span>
+                </div>
+              )}
+            </div>
 
             {/* Weight */}
-            <div className="relative flex items-center">
+            <div className="relative group">
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                Lbs
+              </label>
               <input
                 type="number"
                 min="0"
@@ -322,26 +318,27 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                 value={exercise.weight_lbs ?? ''}
                 onChange={(e) => handleWeightChange(e.target.value)}
                 placeholder="—"
-                className="w-20 px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono placeholder:text-slate-300"
+                className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm placeholder:text-slate-300"
               />
-              <span className="absolute right-3 text-xs text-slate-400 pointer-events-none">lb</span>
             </div>
-          </div>
 
-          {/* Rest time */}
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">Rest</label>
-            <select
-              value={exercise.rest_seconds}
-              onChange={(e) => handleRestChange(e.target.value)}
-              className="pl-2 pr-6 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
-            >
-              {REST_TIME_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            {/* Rest */}
+            <div className="relative group">
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                Rest
+              </label>
+              <select
+                value={exercise.rest_seconds}
+                onChange={(e) => handleRestChange(e.target.value)}
+                className="w-20 px-2 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer text-sm text-center appearance-none"
+              >
+                {REST_TIME_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
         </div>
