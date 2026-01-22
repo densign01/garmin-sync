@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to Garmin Sync.
+
+## [Unreleased]
+
+### Added
+- Two-column exercise mapping UI (DEN-6)
+  - Left: parsed exercise name, Right: Garmin mapping
+  - Searchable dropdown with 2,000+ Garmin exercises (cmdk)
+  - Editable sets, reps, weight, rest time
+  - Reps/distance toggle for exercises like farmer's walk
+  - Confidence badges (green/amber/red)
+- Click-outside-to-close for exercise dropdown
+- Mode state sync when exercise changes externally
+
+### Fixed
+- Dropdown now closes when clicking outside
+- Reps/distance mode stays in sync with exercise data
+
+## [2024-01-19]
+
+### Added
+- Exercise suggestions for poor matches (top 3 alternatives)
+- Confidence scoring with color-coded badges
+- Inline swap UI ("swap?" link expands to show alternatives)
+- Push logging to `workout_push_log` table
+
+### Security
+- Fernet symmetric encryption for Garmin tokens
+- CORS restricted to garmin-sync.vercel.app and localhost
+- Crash on missing GARMIN_ENCRYPTION_KEY (no default)
+- Fernet key format validation on startup
+
+## [2024-01-18]
+
+### Added
+- Dashboard with Garmin connection status
+- Garmin OAuth authentication via garth
+- Workout creation from plain text
+- Push workouts to Garmin Connect
+- Exercise mapping with 1,510 Garmin exercises
+- Fuzzy matching with word-overlap scoring
+- Common aliases (rdl, ohp, ghr, etc.)
