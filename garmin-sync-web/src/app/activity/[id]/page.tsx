@@ -49,10 +49,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-
-
-
-
   useEffect(() => {
     async function loadActivity() {
       const { data, error } = await supabase
@@ -60,10 +56,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         .select('*')
         .eq('id', id)
         .single()
-
-      if (error) {
-        console.error('Error loading activity:', error)
-      }
 
       if (data) {
         setActivity(data)
@@ -96,7 +88,8 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
     loadActivity()
     loadWorkouts()
-  }, [id, supabase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   async function linkWorkout(workoutId: string) {
     const { error } = await supabase
@@ -104,10 +97,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       .update({ linked_workout_id: workoutId })
       .eq('id', id)
 
-    if (error) {
-      console.error('Error linking workout:', error)
-      return
-    }
+    if (error) return
 
     // Load the linked workout details
     const { data } = await supabase

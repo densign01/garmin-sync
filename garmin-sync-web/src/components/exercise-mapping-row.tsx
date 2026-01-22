@@ -71,7 +71,6 @@ const EXERCISE_OPTIONS = Object.entries(GARMIN_EXERCISES).map(([key, [category, 
 // -----------------------------------------------------------------------------
 
 export function ExerciseMappingRow({ exercise, index, onChange, isLast }: ExerciseMappingRowProps) {
-  // ... (keep state logic same)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
