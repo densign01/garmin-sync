@@ -174,7 +174,7 @@ function NewWorkoutContent() {
       } else {
         setError(data.error || 'Failed to parse workout')
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.')
     } finally {
       setLoading(false)
@@ -224,7 +224,7 @@ function NewWorkoutContent() {
       } else {
         setError(data.error || 'Failed to push workout')
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.')
     } finally {
       setPushing(false)
@@ -270,7 +270,7 @@ function NewWorkoutContent() {
           <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-200/50 dark:border-slate-800/50 pb-6">
             <CardTitle>Workout Plan</CardTitle>
             <CardDescription>
-              We'll automatically parse your plan into a structured workout.
+              We&apos;ll automatically parse your plan into a structured workout.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
@@ -498,7 +498,7 @@ Lateral Raises 3x15…`}
               {/* Exercise mapping rows */}
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {parsed.exercises.map((ex, i) => (
-                  <div key={i} className="px-6 py-4">
+                  <div key={`${i}-${ex.name}`} className="px-6 py-4">
                     <ExerciseMappingRow
                       exercise={ex}
                       index={i}

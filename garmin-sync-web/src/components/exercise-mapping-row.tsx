@@ -39,7 +39,36 @@ export type ExerciseMappingRowProps = {
   isLast?: boolean
 }
 
-// ... (imports and other code remain same, I will start replacing from export function)
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+
+const REST_TIME_OPTIONS = [
+  { value: 0, label: 'None' },
+  { value: 30, label: '30s' },
+  { value: 45, label: '45s' },
+  { value: 60, label: '60s' },
+  { value: 75, label: '75s' },
+  { value: 90, label: '90s' },
+  { value: 120, label: '2m' },
+  { value: 180, label: '3m' },
+]
+
+// Build a flat list of exercises for the dropdown
+// Format: { key: "bench press", category: "BENCH_PRESS", garminName: "BARBELL_BENCH_PRESS", displayName: "Bench Press" }
+const EXERCISE_OPTIONS = Object.entries(GARMIN_EXERCISES).map(([key, [category, garminName]]) => ({
+  key,
+  category,
+  garminName,
+  displayName: key
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' '),
+}))
+
+// -----------------------------------------------------------------------------
+// Component
+// -----------------------------------------------------------------------------
 
 export function ExerciseMappingRow({ exercise, index, onChange, isLast }: ExerciseMappingRowProps) {
   // ... (keep state logic same)
@@ -48,18 +77,7 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Determine if this exercise uses distance
-  const isDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
-  const [mode, setMode] = useState<'reps' | 'distance'>(isDistanceMode ? 'distance' : 'reps')
-
-  // ... (keep effects and logic same)
-  useEffect(() => {
-    const shouldBeDistanceMode = Boolean(exercise.distance_meters && exercise.distance_meters > 0)
-    if (shouldBeDistanceMode && mode !== 'distance') {
-      setMode('distance')
-    } else if (!shouldBeDistanceMode && mode !== 'reps') {
-      setMode('reps')
-    }
-  }, [exercise.distance_meters, mode])
+  const mode: 'reps' | 'distance' = (exercise.distance_meters && exercise.distance_meters > 0) ? 'distance' : 'reps'
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -146,7 +164,6 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
   }
 
   const handleModeChange = (newMode: 'reps' | 'distance') => {
-    setMode(newMode)
     if (newMode === 'distance' && !exercise.distance_meters) {
       onChange(index, { ...exercise, distance_meters: 37, reps: 1 })
     } else if (newMode === 'reps' && exercise.distance_meters) {

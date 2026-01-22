@@ -4,8 +4,7 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
 
 type Exercise = {
   name: string
@@ -50,28 +49,67 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
+
+
+
+
   useEffect(() => {
-    loadActivity()
-    loadWorkouts()
-  }, [id])
+    async function loadActivity() {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('id', id)
+        .single()
 
-  async function loadActivity() {
-    const { data, error } = await supabase
-      .from('activities')
-      .select('*')
-      .eq('id', id)
-      .single()
+      if (error) {
+        console.error('Error loading activity:', error)
+      }
 
-    if (data) {
-      setActivity(data)
-      if (data.linked_workout_id) {
-        loadLinkedWorkout(data.linked_workout_id)
+      if (data) {
+        setActivity(data)
+        if (data.linked_workout_id) {
+          const { data: linkedData } = await supabase
+            .from('workouts')
+            .select('*')
+            .eq('id', data.linked_workout_id)
+            .single()
+
+          if (linkedData) {
+            setLinkedWorkout(linkedData)
+          }
+        }
+      }
+      setLoading(false)
+    }
+
+    async function loadWorkouts() {
+      const { data } = await supabase
+        .from('workouts')
+        .select('id, name, exercises')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (data) {
+        setAvailableWorkouts(data)
       }
     }
-    setLoading(false)
-  }
 
-  async function loadLinkedWorkout(workoutId: string) {
+    loadActivity()
+    loadWorkouts()
+  }, [id, supabase])
+
+  async function linkWorkout(workoutId: string) {
+    const { error } = await supabase
+      .from('activities')
+      .update({ linked_workout_id: workoutId })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error linking workout:', error)
+      return
+    }
+
+    // Load the linked workout details
     const { data } = await supabase
       .from('workouts')
       .select('*')
@@ -80,29 +118,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
     if (data) {
       setLinkedWorkout(data)
-    }
-  }
-
-  async function loadWorkouts() {
-    const { data } = await supabase
-      .from('workouts')
-      .select('id, name, exercises')
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (data) {
-      setAvailableWorkouts(data)
-    }
-  }
-
-  async function linkWorkout(workoutId: string) {
-    const { error } = await supabase
-      .from('activities')
-      .update({ linked_workout_id: workoutId })
-      .eq('id', id)
-
-    if (!error) {
-      loadLinkedWorkout(workoutId)
       setActivity(prev => prev ? { ...prev, linked_workout_id: workoutId } : null)
     }
   }
@@ -158,7 +173,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Activity Not Found</h1>
           <p className="text-slate-500 dark:text-slate-400 mb-8">
-            This activity might have been deleted or you don't have permission to view it.
+            This activity might have been deleted or you don&apos;t have permission to view it.
           </p>
           <Link href="/dashboard">
             <Button className="h-11 px-8 rounded-xl bg-slate-900 text-white hover:bg-slate-800">

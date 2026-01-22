@@ -51,7 +51,7 @@ export default function Home() {
               <div className="text-3xl mb-4" aria-hidden="true">💬</div>
               <h3 className="font-semibold text-lg">Plain Text Input</h3>
               <p className="text-muted-foreground mt-2">
-                "Bench 3x10 @ 185, Rows 3x12 @ 135" – that's all you need
+                &quot;Bench 3x10 @ 185, Rows 3x12 @ 135&quot; – that&apos;s all you need
               </p>
             </div>
             <div className="text-center">
