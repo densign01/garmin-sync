@@ -1,30 +1,23 @@
 # Session: garmin-sync
-Updated: 2026-01-21
+Updated: 2026-01-22T02:46:47.902Z
 
 ## Goal
 Public web app to plan strength workouts with AI, push to Garmin watch, track progress.
 
 ## State
-- [x] Phase 1-4: Dashboard, Garmin auth, workout creation, push to Garmin
-- [x] Exercise mapping: 1,510 exercises with fuzzy matching
-- [x] Security audit and fixes
-- [x] Render updated with new encryption key
-- [x] Exercise suggestions with confidence scoring
-- [x] Inline swap UI for exercise suggestions
-- [x] Feature branch merged to master
-- [x] Sync endpoint fixed (token-based auth for serverless)
+- Done: Phase 1-4, exercise mapping, security, DEN-6 mapping UI, review fixes
+- Now: Create CHANGELOG.md
+- Next: DEN-7 (persist workout settings), Phase 5 (Gemini chatbot)
+
+## Linear Issues
 - [x] DEN-6: Redesign exercise preview as left-to-right mapping UI
-- [ ] Phase 5: Gemini Chatbot integration
+- [ ] DEN-7: Persist workout settings to user profile
 
 ## Deployment URLs
 - **Vercel**: https://garmin-sync.vercel.app (Next.js)
 - **Render**: https://garmin-sync-api.onrender.com (FastAPI)
 - **GitHub**: densign01/garmin-sync
-
-## Immediate Next Steps
-1. Test the new two-column exercise mapping UI
-2. Deploy to Vercel (auto-deploys on push)
-3. Plan Phase 5: Gemini Chatbot integration
+- **Latest commit**: 02e3f5d (fix: click-outside + mode sync)
 
 ## Recent Features (Jan 21 - DEN-6)
 1. **Two-column mapping UI**: Input → Garmin exercise mapping

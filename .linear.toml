@@ -1,0 +1,13 @@
+# Linear CLI configuration
+# For garmin-sync project
+
+[team]
+key = "DEN"
+name = "Densign"
+id = "8ba75082-3e3c-451f-958b-f5a365e89954"
+
+[project]
+name = "garmin-sync"
+
+[issue]
+sort = "updated"
