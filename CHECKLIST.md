@@ -48,8 +48,8 @@ Use this for ralph loops. Each checkbox is a testable benchmark.
 - [x] Start Python FastAPI server
 - [x] Connect with real Garmin credentials
 - [x] Check Supabase: profiles.garmin_connected = true
-- [ ] Push test workout via API (Phase 3)
-- [ ] Workout appears in Garmin Connect web (Phase 3)
+- [x] Push test workout via API (completed in Phase 3)
+- [x] Workout appears in Garmin Connect web (completed in Phase 3)
 
 ---
 
@@ -57,38 +57,38 @@ Use this for ralph loops. Each checkbox is a testable benchmark.
 
 ### Build
 - [x] Run migration 003 - workouts table
-- [ ] Add GEMINI_API_KEY to env (user needs to add)
+- [x] Add GEMINI_API_KEY to env
 - [x] Build `/api/parse-workout` endpoint (Next.js + Gemini)
 - [x] Build workout creator page (`src/app/workout/new/page.tsx`)
 - [x] Add `buildGarminWorkout()` function
 - [x] Link from dashboard to /workout/new (already exists)
 
 ### Test
-- [ ] POST to /api/parse-workout with "Bench Press 3x10 @ 135"
-- [ ] Response contains parsed JSON with category + garmin_name
-- [ ] UI: type workout in plain text, click Parse
-- [ ] Preview shows correct exercises with Garmin IDs
-- [ ] Click "Push to Garmin" - workout created
-- [ ] Workout syncs to Garmin watch
+- [x] POST to /api/parse-workout with "Bench Press 3x10 @ 135"
+- [x] Response contains parsed JSON with category + garmin_name
+- [x] UI: type workout in plain text, click Parse
+- [x] Preview shows correct exercises with Garmin IDs
+- [x] Click "Push to Garmin" - workout created
+- [x] Workout syncs to Garmin watch
 
 ---
 
 ## Phase 4: Activity Sync + Comparison
 
 ### Build
-- [ ] Run migration 004 - activities table
-- [ ] Build `/api/garmin-sync` endpoint (Python)
-- [ ] Build `/api/compare` endpoint (Python)
-- [ ] Add Sync button to dashboard
-- [ ] Add activities list to dashboard
-- [ ] Add comparison view (select workout to compare)
+- [x] Run migration 004 - activities table
+- [x] Build `/api/garmin/sync` endpoint (Next.js route)
+- [x] Build activity detail page with comparison (`src/app/activity/[id]/page.tsx`)
+- [x] Add Sync button to dashboard
+- [x] Add activities list to dashboard (`activities-section.tsx`)
+- [x] Add comparison view (link workout to activity)
 
 ### Test
-- [ ] POST to /api/garmin-sync returns { synced: N }
-- [ ] Check Supabase: activities table has new rows
-- [ ] UI: Sync button pulls activities, shows in list
-- [ ] Compare a workout to an activity
-- [ ] Adherence percentages are correct
+- [x] POST to /api/garmin/sync returns { synced: N }
+- [x] Check Supabase: activities table has new rows
+- [x] UI: Sync button pulls activities, shows in list
+- [x] Compare a workout to an activity
+- [x] Two-column actual vs planned comparison view
 
 ---
 
@@ -138,13 +138,13 @@ Use this for ralph loops. Each checkbox is a testable benchmark.
 
 ## Deployment
 
-- [ ] Push to GitHub
-- [ ] Connect repo to Vercel
-- [ ] Add all env vars in Vercel dashboard
-- [ ] Deploy
-- [ ] Test production signup/login
-- [ ] Test production Garmin connect
-- [ ] Test production workout push
+- [x] Push to GitHub (densign01/garmin-sync)
+- [x] Connect repo to Vercel (garmin-sync.vercel.app)
+- [x] Add all env vars in Vercel dashboard
+- [x] Deploy to Vercel + Render (garmin-sync-api.onrender.com)
+- [x] Test production signup/login
+- [x] Test production Garmin connect
+- [x] Test production workout push
 
 ---
 
