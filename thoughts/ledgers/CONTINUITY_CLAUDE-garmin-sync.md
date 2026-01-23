@@ -1,13 +1,30 @@
 # Session: garmin-sync
-Updated: 2026-01-22T02:46:47.902Z
+Updated: 2026-01-23T17:52:00.158Z
 
 ## Goal
 Public web app to plan strength workouts with AI, push to Garmin watch, track progress.
 
 ## State
-- Done: Phase 1-4, exercise mapping, security, DEN-6 mapping UI, review fixes
-- Now: Create CHANGELOG.md
+- Done: Phase 1-4, exercise mapping, security, DEN-6 mapping UI, review fixes, doc consolidation
+- Now: Ready for next feature
 - Next: DEN-7 (persist workout settings), Phase 5 (Gemini chatbot)
+
+## Documentation Consolidation (Jan 23)
+- Updated CHECKLIST.md - Phase 3, 4, Deployment all marked complete (was stale)
+- Fixed CHANGELOG.md dates (2024 → 2026)
+- Archived completed `fix-review-issues.md` to `thoughts/archive/`
+- Removed empty `.context/todos.md` and `.context/notes.md`
+
+### Document Map
+| File | Purpose | Update Frequency |
+|------|---------|------------------|
+| `CONTINUITY_CLAUDE-*.md` | Session state, decisions, working set | Every session |
+| `CHANGELOG.md` | User-facing release notes | On feature merge |
+| `CHECKLIST.md` | Phase completion tracking | On phase completion |
+| `CLAUDE.md` | Developer guidance | Rarely (project setup) |
+| `README.md` | User documentation | On major features |
+| `thoughts/shared/plans/*.md` | Active implementation plans | During planning |
+| `thoughts/archive/*.md` | Completed plans | Reference only |
 
 ## Linear Issues
 - [x] DEN-6: Redesign exercise preview as left-to-right mapping UI

@@ -28,7 +28,7 @@ All notable changes to Garmin Sync.
 - Dropdown now closes when clicking outside
 - Reps/distance mode stays in sync with exercise data
 
-## [2024-01-19]
+## [2026-01-19]
 
 ### Added
 - Exercise suggestions for poor matches (top 3 alternatives)
@@ -42,7 +42,7 @@ All notable changes to Garmin Sync.
 - Crash on missing GARMIN_ENCRYPTION_KEY (no default)
 - Fernet key format validation on startup
 
-## [2024-01-18]
+## [2026-01-18]
 
 ### Added
 - Dashboard with Garmin connection status
