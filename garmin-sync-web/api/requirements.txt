@@ -1,2 +1,0 @@
-garth>=0.4.0
-supabase>=2.0.0
