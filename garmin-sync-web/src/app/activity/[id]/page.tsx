@@ -47,7 +47,90 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [linkedWorkout, setLinkedWorkout] = useState<Workout | null>(null)
   const [availableWorkouts, setAvailableWorkouts] = useState<Workout[]>([])
   const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
   const supabase = createClient()
+
+  /**
+   * Formats an activity into plain text for clipboard copy.
+   * Output format matches Hevy export style:
+   * - Header with workout name and date
+   * - Each exercise with individual sets listed
+   * - Sets show weight x reps, or duration for timed exercises
+   */
+  function formatActivityForCopy(act: Activity): string {
+    const lines: string[] = []
+
+    // Header: Workout name
+    lines.push(act.name || 'Strength Training')
+
+    // Subheader: Full date and time
+    const date = new Date(act.started_at)
+    const dateStr = date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    })
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).toLowerCase()
+    lines.push(`${dateStr} at ${timeStr}`)
+    lines.push('')
+
+    // Each exercise
+    if (act.exercises && act.exercises.length > 0) {
+      for (const ex of act.exercises) {
+        // Exercise name (convert SNAKE_CASE to Title Case)
+        const exName = ex.name
+          .split('_')
+          .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+          .join(' ')
+        lines.push(exName)
+
+        // Each set
+        ex.sets.forEach((set, idx) => {
+          let setLine = `Set ${idx + 1}: `
+
+          if (set.weight_lbs && set.reps) {
+            // Weighted with reps: "135 lbs x 8"
+            setLine += `${Math.round(set.weight_lbs)} lbs x ${set.reps}`
+          } else if (set.weight_lbs && set.duration_seconds) {
+            // Weighted with duration (carries): "110 lbs - 45 sec"
+            setLine += `${Math.round(set.weight_lbs)} lbs - ${set.duration_seconds} sec`
+          } else if (set.reps) {
+            // Bodyweight: "12 reps"
+            setLine += `${set.reps} reps`
+          } else if (set.duration_seconds) {
+            // Duration only (planks): "45 sec"
+            setLine += `${set.duration_seconds} sec`
+          } else {
+            // Fallback for empty sets
+            setLine += '—'
+          }
+
+          lines.push(setLine)
+        })
+
+        lines.push('') // Blank line between exercises
+      }
+    }
+
+    return lines.join('\n').trim()
+  }
+
+  /**
+   * Copies the formatted activity text to clipboard and shows feedback.
+   */
+  async function handleCopy() {
+    if (!activity) return
+
+    const text = formatActivityForCopy(activity)
+    await navigator.clipboard.writeText(text)
+
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     async function loadActivity() {
@@ -219,13 +302,40 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-white dark:bg-slate-900 pr-5 pl-2 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</div>
-                <div className="font-semibold text-slate-900 dark:text-white">{formatDuration(activity.duration_seconds)}</div>
+            <div className="flex items-center gap-3">
+              {/* Copy text button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopy}
+                className="h-9 px-4 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 gap-2 font-medium transition-all"
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy text
+                  </>
+                )}
+              </Button>
+
+              {/* Duration badge */}
+              <div className="flex items-center gap-4 bg-white dark:bg-slate-900 pr-5 pl-2 py-2 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</div>
+                  <div className="font-semibold text-slate-900 dark:text-white">{formatDuration(activity.duration_seconds)}</div>
+                </div>
               </div>
             </div>
           </div>
