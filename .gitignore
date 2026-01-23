@@ -35,3 +35,6 @@ Thumbs.db
 # Test artifacts
 .pytest_cache/
 coverage/
+
+# Debug logs
+firebase-debug.log

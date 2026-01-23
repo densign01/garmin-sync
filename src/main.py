@@ -101,8 +101,8 @@ async def login(request: LoginRequest) -> LoginResponse:
         encrypted = encrypt_tokens(tokens_str)
         garmin_client._authenticated = True
         return LoginResponse(authenticated=True, tokens_encrypted=encrypted)
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Login failed: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Login failed. Please check your credentials.")
 
 
 class PushWorkoutRequest(BaseModel):
@@ -318,23 +318,6 @@ async def get_activity(activity_id: int) -> CompletedActivity:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/activities/{activity_id}/raw")
-async def get_activity_raw(activity_id: int) -> dict:
-    """Debug: Get raw activity data from Garmin."""
-    if not garmin_client.is_authenticated:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    try:
-        details = garmin_client.get_activity_details(activity_id)
-        exercises = garmin_client.get_activity_exercises(activity_id)
-        return {
-            "details_type": str(type(details)),
-            "details": details,
-            "exercises_type": str(type(exercises)),
-            "exercises": exercises,
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/activities/{activity_id}/export")
