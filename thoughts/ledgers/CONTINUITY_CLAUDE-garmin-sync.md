@@ -1,5 +1,5 @@
 # Session: garmin-sync
-Updated: 2026-01-24T15:00:10.486Z
+Updated: 2026-01-24T15:03:48.035Z
 
 ## Goal
 Public web app to plan strength workouts with AI, push to Garmin watch, track progress.
