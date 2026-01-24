@@ -2,7 +2,7 @@
   "name": "Garmin Sync",
   "short_name": "Garmin Sync",
   "description": "Sync your strength workouts with Garmin",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
