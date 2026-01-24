@@ -136,12 +136,14 @@ export function ActivitiesSection() {
           size="sm"
           onClick={handleSync}
           disabled={syncing}
-          className="h-9 px-4 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-200 gap-2 font-medium transition-all"
+          className="h-9 px-4 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-200 gap-2 font-medium transition-colors"
         >
           <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          {syncing ? 'Syncing...' : 'Sync Now'}
+          <span className="min-w-[68px] text-center">
+            {syncing ? 'Syncing...' : 'Sync Now'}
+          </span>
         </Button>
       </div>
 
