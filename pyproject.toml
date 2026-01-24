@@ -10,6 +10,7 @@ dependencies = [
     "fitdecode>=0.10.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
+    "slowapi>=0.1.9",  # Rate limiting for FastAPI
 ]
 
 [project.optional-dependencies]
