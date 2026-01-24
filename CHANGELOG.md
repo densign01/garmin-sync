@@ -27,6 +27,7 @@ All notable changes to Garmin Sync.
 ### Fixed
 - Dropdown now closes when clicking outside
 - Reps/distance mode stays in sync with exercise data
+- Sync button no longer shows overlapping text during state transition (#19)
 
 ## [2026-01-19]
 
