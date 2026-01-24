@@ -29,6 +29,12 @@ All notable changes to Garmin Sync.
 - Reps/distance mode stays in sync with exercise data
 - Sync button no longer shows overlapping text during state transition (#19)
 
+### Security
+- Rate limiting on login endpoints: 5 attempts per 15 min per IP (#13)
+  - FastAPI: slowapi middleware on `/api/auth/login`
+  - Next.js: Edge middleware on `/api/garmin/login`
+  - Returns 429 with Retry-After header when exceeded
+
 ## [2026-01-19]
 
 ### Added

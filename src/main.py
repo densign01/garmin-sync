@@ -5,11 +5,14 @@ from pathlib import Path
 import garth
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from .garmin_client import garmin_client
 from .schemas import (
@@ -21,6 +24,14 @@ from .schemas import (
 )
 
 load_dotenv()
+
+# ------------------------------------------------------------------
+# Rate Limiting Configuration
+# ------------------------------------------------------------------
+# Uses in-memory storage (resets on server restart).
+# For distributed deployments, consider Redis backend.
+# ------------------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
 
 # Encryption key must be set - no fallback for security
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
@@ -35,6 +46,23 @@ except Exception as e:
     raise RuntimeError(f"Invalid GARMIN_ENCRYPTION_KEY format: {e}. Generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"")
 
 app = FastAPI(title="Garmin Sync", description="Sync strength workouts with Garmin Connect")
+
+# Attach rate limiter to app state (required by slowapi)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Custom 429 handler with clear message for rate-limited requests."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Too many login attempts. Please wait 15 minutes before trying again.",
+            "retry_after_seconds": 900,  # 15 minutes
+        },
+        headers={"Retry-After": "900"},
+    )
+
 
 # Restrict CORS to known origins only
 ALLOWED_ORIGINS = [
@@ -93,10 +121,15 @@ async def auth_status() -> AuthStatus:
 
 
 @app.post("/api/auth/login")
-async def login(request: LoginRequest) -> LoginResponse:
-    """Login to Garmin Connect and return encrypted tokens."""
+@limiter.limit("5/15minutes")  # 5 attempts per 15 minutes per IP
+async def login(request: Request, login_request: LoginRequest) -> LoginResponse:
+    """Login to Garmin Connect and return encrypted tokens.
+
+    Rate limited to 5 attempts per 15 minutes per IP address
+    to prevent brute force attacks.
+    """
     try:
-        garth.login(request.email, request.password)
+        garth.login(login_request.email, login_request.password)
         tokens_str = garth.client.dumps()
         encrypted = encrypt_tokens(tokens_str)
         garmin_client._authenticated = True
