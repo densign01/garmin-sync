@@ -5,6 +5,10 @@ All notable changes to Garmin Sync.
 ## [Unreleased]
 
 ### Added
+- Persist workout settings to user profile (#3)
+  - Rest times and unilateral mode saved to database
+  - Auto-save on change (1000ms debounce)
+  - Subtle "Saved" indicator with retry on failure
 - Two-column exercise mapping UI (DEN-6)
   - Left: parsed exercise name, Right: Garmin mapping
   - Searchable dropdown with 2,000+ Garmin exercises (cmdk)
