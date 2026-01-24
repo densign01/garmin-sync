@@ -250,8 +250,8 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
           </div>
 
           {/* Sets, Reps/Distance, Weight row */}
-          {/* Stats Row */}
-          <div className="flex items-center gap-3 pt-2">
+          {/* Stats Row - wraps on mobile */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-2">
             {/* Sets */}
             <div className="relative group">
               <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -263,7 +263,7 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                 max="99"
                 value={exercise.sets}
                 onChange={(e) => handleSetsChange(e.target.value)}
-                className="w-16 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                className="w-14 sm:w-16 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
               />
             </div>
 
@@ -287,7 +287,7 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                   max="999"
                   value={exercise.reps}
                   onChange={(e) => handleRepsChange(e.target.value)}
-                  className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                  className="w-16 sm:w-20 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
                   placeholder="Reps"
                 />
               ) : (
@@ -298,9 +298,9 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                     max="9999"
                     value={distanceYards}
                     onChange={(e) => handleDistanceChange(e.target.value)}
-                    className="w-24 px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                    className="w-20 sm:w-24 px-2 sm:px-3 py-2 pr-7 sm:pr-8 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
                   />
-                  <span className="absolute right-3 top-2 text-xs text-slate-400 pointer-events-none">yd</span>
+                  <span className="absolute right-2 sm:right-3 top-2 text-xs text-slate-400 pointer-events-none">yd</span>
                 </div>
               )}
             </div>
@@ -317,7 +317,7 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                 value={exercise.weight_lbs ?? ''}
                 onChange={(e) => handleWeightChange(e.target.value)}
                 placeholder="—"
-                className="w-20 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm placeholder:text-slate-300"
+                className="w-16 sm:w-20 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm placeholder:text-slate-300"
               />
             </div>
 
@@ -329,7 +329,7 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
               <select
                 value={exercise.rest_seconds}
                 onChange={(e) => handleRestChange(e.target.value)}
-                className="w-20 px-2 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer text-sm text-center appearance-none"
+                className="w-16 sm:w-20 px-1 sm:px-2 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer text-sm text-center appearance-none"
               >
                 {REST_TIME_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
