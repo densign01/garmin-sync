@@ -74,6 +74,7 @@ Output ONLY valid JSON with this structure:
   "exercises": [
     {
       "name": "exercise name (lowercase)",
+      "original_input": "Exercise Name (Qualifier) - exactly as written by user",
       "sets": 3,
       "reps": 10,
       "weight_lbs": 135,
@@ -90,6 +91,7 @@ Rules:
 - "135lbs" or "135 lbs" or "135#" or "@ 135" all mean weight in pounds
 - If workout has no name, generate one based on exercises (e.g., "Upper Body", "Push Day")
 - Normalize exercise names to common form (e.g., "DB bench" -> "dumbbell bench press")
+- IMPORTANT: Preserve the original_input field with the exercise name EXACTLY as written by the user, including any qualifiers like "(Warm-up)", "(Work)", "(Heavy)", etc. This helps distinguish duplicate exercises.
 - For farmer's walk/carry: use distance_meters instead of reps
   - "40 yards" = 37 meters, "50 yards" = 46 meters, "100 feet" = 30 meters
   - If distance given, set reps to 1 and include distance_meters

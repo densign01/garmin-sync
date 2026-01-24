@@ -17,6 +17,8 @@ import { GARMIN_EXERCISES } from '@/lib/garmin-exercises'
 
 export type Exercise = {
   name: string
+  /** Original exercise line from user input (preserves qualifiers like "Warm-up" or "Work") */
+  original_input?: string
   sets: number
   reps: number
   weight_lbs?: number
@@ -177,11 +179,11 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
       {/* Two-column layout: Input → Mapping */}
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
 
-        {/* LEFT: Original input (read-only) */}
+        {/* LEFT: Original input (read-only) - shows qualifier if available */}
         <div className="sm:w-1/3 pt-2">
           <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-medium capitalize">
             <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-            {exercise.name}
+            {exercise.original_input ?? exercise.name}
           </div>
         </div>
 
