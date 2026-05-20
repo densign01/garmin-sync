@@ -15,16 +15,7 @@ type GarminActivity = {
   }
 }
 
-type GarminExerciseSet = {
-  exerciseName: string
-  exerciseCategory: string
-  setOrder: number
-  reps: number | null
-  weight: number | null
-  duration: number | null
-}
-
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     // Verify user is authenticated
     const supabase = await createClient()

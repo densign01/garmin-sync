@@ -62,13 +62,6 @@ type UnilateralMode = 'double_sets' | 'double_reps'
 // Settings save status for UI feedback
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-// Default settings (used when user has no saved preferences)
-const DEFAULT_SETTINGS = {
-  majorLiftRest: 90,
-  minorLiftRest: 60,
-  unilateralMode: 'double_sets' as UnilateralMode,
-}
-
 export default function NewWorkoutPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
@@ -121,6 +114,10 @@ function NewWorkoutContent() {
     if (!isUnilateral(exercise.name)) return exercise
 
     if (unilateralMode === 'double_sets') {
+      return { ...exercise, sets: exercise.sets * 2 }
+    } else if (exercise.target_type === 'time' && exercise.duration_seconds) {
+      return { ...exercise, duration_seconds: exercise.duration_seconds * 2 }
+    } else if (exercise.target_type === 'distance') {
       return { ...exercise, sets: exercise.sets * 2 }
     } else {
       return { ...exercise, reps: exercise.reps * 2 }
@@ -261,10 +258,17 @@ function NewWorkoutContent() {
         const workoutWithSettings = {
           ...data.parsed,
           exercises: data.parsed.exercises.map((ex: Exercise) => {
+            const targetType = ex.target_type ||
+              (ex.distance_meters ? 'distance' : ex.duration_seconds ? 'time' : 'reps')
+            const hasParsedRest = typeof ex.rest_seconds === 'number' && Number.isFinite(ex.rest_seconds)
             // First apply rest time
             const withRest = {
               ...ex,
-              rest_seconds: ex.rest_seconds || (isMajorLift(ex.name) ? majorLiftRest : minorLiftRest),
+              target_type: targetType,
+              reps: ex.reps || 1,
+              rest_seconds: hasParsedRest
+                ? Math.max(0, ex.rest_seconds)
+                : (isMajorLift(ex.name) ? majorLiftRest : minorLiftRest),
             }
             // Then apply unilateral mode
             return applyUnilateralMode(withRest)
@@ -674,11 +678,21 @@ Lateral Raises 3x15…`}
 function buildGarminWorkout(parsed: ParsedWorkout) {
   const steps: unknown[] = []
   let stepOrder = 1
+  const endConditions = {
+    reps: { conditionTypeId: Number(10), conditionTypeKey: 'reps' },
+    time: { conditionTypeId: Number(2), conditionTypeKey: 'time' },
+    lapButton: { conditionTypeId: Number(7), conditionTypeKey: 'lap.button' },
+  }
 
   for (const ex of parsed.exercises) {
+    const targetType = ex.target_type ||
+      ((ex.distance_meters && ex.distance_meters > 0) ? 'distance' :
+        (ex.duration_seconds && ex.duration_seconds > 0) ? 'time' : 'reps')
+
     // Distance-based exercises (farmer's walk, etc.) use Lap Button instead of distance
     // Garmin's strength mode doesn't support distance as end condition - use manual lap press
-    const isDistanceBased = ex.distance_meters && ex.distance_meters > 0
+    const isDistanceBased = targetType === 'distance'
+    const isTimeBased = targetType === 'time'
 
     // Custom exercises use "CORE" with the real name in description
     const isCustomExercise = ex.garmin_name === 'CORE' || !ex.garmin_name
@@ -698,12 +712,17 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
       stepOrder: Number(stepOrder + 1),
       stepType: { stepTypeId: Number(3), stepTypeKey: 'interval' },
       // Distance exercises: use Lap Button (7) - user presses lap when done
+      // Timed exercises: use Time (2), matching existing successful rest timers
       // Reps exercises: use reps (10)
       endCondition: isDistanceBased
-        ? { conditionTypeId: Number(7), conditionTypeKey: 'lap.button' }
-        : { conditionTypeId: Number(10), conditionTypeKey: 'reps' },
-      // For lap button, no value needed; for reps, use rep count
-      ...(isDistanceBased ? {} : { endConditionValue: Number(ex.reps) }),
+        ? endConditions.lapButton
+        : isTimeBased
+          ? endConditions.time
+          : endConditions.reps,
+      // For lap button, no value needed; timed and reps targets need a value
+      ...(isDistanceBased ? {} : {
+        endConditionValue: Number(isTimeBased ? (ex.duration_seconds || 30) : ex.reps),
+      }),
       targetType: { workoutTargetTypeId: Number(1), workoutTargetTypeKey: 'no.target' },
       category: ex.category || 'CORE',
       exerciseName: ex.garmin_name || 'CORE',
@@ -719,8 +738,8 @@ function buildGarminWorkout(parsed: ParsedWorkout) {
       type: 'ExecutableStepDTO',
       stepOrder: Number(stepOrder + 2),
       stepType: { stepTypeId: Number(5), stepTypeKey: 'rest' },
-      endCondition: { conditionTypeId: Number(2), conditionTypeKey: 'time' },
-      endConditionValue: Number(ex.rest_seconds || 90),
+      endCondition: endConditions.time,
+      endConditionValue: Number(ex.rest_seconds ?? 90),
       strokeType: { strokeTypeId: Number(0) },
       equipmentType: { equipmentTypeId: Number(0) },
     }

@@ -23,6 +23,7 @@ export default function GarminConnectPage() {
 
   useEffect(() => {
     checkConnectionStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function checkConnectionStatus() {
@@ -106,7 +107,7 @@ export default function GarminConnectPage() {
         setError(data.error || 'Failed to connect to Garmin')
         setLoading(false)
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.')
       setLoading(false)
     }

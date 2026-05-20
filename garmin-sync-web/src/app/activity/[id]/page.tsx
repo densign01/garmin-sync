@@ -28,8 +28,12 @@ type Activity = {
 
 type PlannedExercise = {
   name: string
+  target_type?: 'reps' | 'time' | 'distance'
   sets: number
   reps: number
+  duration_seconds?: number
+  distance_meters?: number
+  rest_seconds?: number
   weight_lbs?: number
   category?: string
   garmin_name?: string
@@ -134,7 +138,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     async function loadActivity() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('activities')
         .select('*')
         .eq('id', id)
@@ -219,6 +223,21 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       hour: 'numeric',
       minute: '2-digit',
     })
+  }
+
+  function formatPlannedTarget(ex: PlannedExercise): string {
+    const targetType = ex.target_type ||
+      (ex.distance_meters ? 'distance' : ex.duration_seconds ? 'time' : 'reps')
+
+    if (targetType === 'time') {
+      return `${ex.duration_seconds || 30} sec`
+    }
+
+    if (targetType === 'distance') {
+      return `${Math.round((ex.distance_meters || 0) * 1.094)} yd`
+    }
+
+    return `${ex.reps} reps`
   }
 
   if (loading) {
@@ -444,11 +463,16 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                               <span className="font-medium text-slate-900 dark:text-white">{ex.sets}</span> sets
                             </div>
                             <div>
-                              <span className="font-medium text-slate-900 dark:text-white">{ex.reps}</span> reps
+                              <span className="font-medium text-slate-900 dark:text-white">{formatPlannedTarget(ex)}</span>
                             </div>
                             {ex.weight_lbs && (
                               <div>
                                 @ <span className="font-medium text-slate-900 dark:text-white">{ex.weight_lbs}</span> lbs
+                              </div>
+                            )}
+                            {typeof ex.rest_seconds === 'number' && (
+                              <div>
+                                <span className="font-medium text-slate-900 dark:text-white">{ex.rest_seconds}</span>s rest
                               </div>
                             )}
                           </div>

@@ -1,5 +1,5 @@
 """Pydantic schemas for Garmin workout data."""
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel
 
 
@@ -7,8 +7,10 @@ class ExerciseInput(BaseModel):
     """Input for a single exercise."""
     category: str  # e.g., "BENCH_PRESS", "SQUAT", "CURL"
     exercise_name: str  # e.g., "BARBELL_BENCH_PRESS", "DUMBBELL_FLYE"
+    target_type: Literal["reps", "time", "distance"] | None = None
     sets: int = 3
     reps: int = 10
+    duration_seconds: int | None = None  # For timed exercises (planks, wall sits)
     rest_seconds: int = 60
     weight_lbs: float | None = None  # Optional preset weight
     distance_meters: float | None = None  # For distance-based exercises (farmer's carry)
@@ -48,6 +50,15 @@ def build_workout_json(workout: WorkoutInput) -> dict[str, Any]:
     step_order = 1
 
     for exercise in workout.exercises:
+        target_type = exercise.target_type
+        if target_type is None:
+            if exercise.distance_meters:
+                target_type = "distance"
+            elif exercise.duration_seconds:
+                target_type = "time"
+            else:
+                target_type = "reps"
+
         # Create a repeat group for each exercise (sets x reps)
         repeat_group = {
             "type": "RepeatGroupDTO",
@@ -62,63 +73,54 @@ def build_workout_json(workout: WorkoutInput) -> dict[str, Any]:
         }
         step_order += 1
 
-        # Exercise step - use distance for distance-based exercises, reps otherwise
-        if exercise.distance_meters:
-            # Distance-based exercise (farmer's carry, etc.)
-            exercise_step = {
-                "type": "ExecutableStepDTO",
-                "stepOrder": step_order,
-                "stepType": {
-                    "stepTypeId": 3,
-                    "stepTypeKey": "interval",
-                },
-                "endCondition": {
-                    "conditionTypeId": 3,
-                    "conditionTypeKey": "distance",
-                },
-                "endConditionValue": float(exercise.distance_meters),
-                "targetType": {
-                    "workoutTargetTypeId": 1,
-                    "workoutTargetTypeKey": "no.target",
-                },
-                "category": exercise.category,
-                "exerciseName": exercise.exercise_name,
-                "strokeType": {"strokeTypeId": 0},
-                "equipmentType": {"equipmentTypeId": 0},
-                "weightUnit": {
-                    "unitId": 9,
-                    "unitKey": "pound",
-                    "factor": 453.59237,
-                },
+        if target_type == "distance":
+            end_condition = {
+                "conditionTypeId": 7,
+                "conditionTypeKey": "lap.button",
             }
+            end_value = None
+        elif target_type == "time":
+            end_condition = {
+                "conditionTypeId": 2,
+                "conditionTypeKey": "time",
+            }
+            end_value = int(exercise.duration_seconds or 30)
         else:
-            # Reps-based exercise (standard)
-            exercise_step = {
-                "type": "ExecutableStepDTO",
-                "stepOrder": step_order,
-                "stepType": {
-                    "stepTypeId": 3,
-                    "stepTypeKey": "interval",
-                },
-                "endCondition": {
-                    "conditionTypeId": 10,
-                    "conditionTypeKey": "reps",
-                },
-                "endConditionValue": float(exercise.reps),
-                "targetType": {
-                    "workoutTargetTypeId": 1,
-                    "workoutTargetTypeKey": "no.target",
-                },
-                "category": exercise.category,
-                "exerciseName": exercise.exercise_name,
-                "strokeType": {"strokeTypeId": 0},
-                "equipmentType": {"equipmentTypeId": 0},
-                "weightUnit": {
-                    "unitId": 9,
-                    "unitKey": "pound",
-                    "factor": 453.59237,
-                },
+            end_condition = {
+                "conditionTypeId": 10,
+                "conditionTypeKey": "reps",
             }
+            end_value = int(exercise.reps)
+
+        exercise_step = {
+            "type": "ExecutableStepDTO",
+            "stepOrder": step_order,
+            "stepType": {
+                "stepTypeId": 3,
+                "stepTypeKey": "interval",
+            },
+            "endCondition": end_condition,
+            "targetType": {
+                "workoutTargetTypeId": 1,
+                "workoutTargetTypeKey": "no.target",
+            },
+            "category": exercise.category,
+            "exerciseName": exercise.exercise_name,
+            "strokeType": {"strokeTypeId": 0},
+            "equipmentType": {"equipmentTypeId": 0},
+            "weightUnit": {
+                "unitId": 9,
+                "unitKey": "pound",
+                "factor": 453.59237,
+            },
+        }
+
+        if end_value is not None:
+            exercise_step["endConditionValue"] = end_value
+
+        if target_type == "distance" and exercise.distance_meters:
+            yards = round(exercise.distance_meters * 1.094)
+            exercise_step["description"] = f"{yards} yds"
 
         if exercise.weight_lbs:
             exercise_step["weightValue"] = exercise.weight_lbs
@@ -138,7 +140,7 @@ def build_workout_json(workout: WorkoutInput) -> dict[str, Any]:
                 "conditionTypeId": 2,
                 "conditionTypeKey": "time",
             },
-            "endConditionValue": float(exercise.rest_seconds),
+            "endConditionValue": int(exercise.rest_seconds),
             "strokeType": {"strokeTypeId": 0},
             "equipmentType": {"equipmentTypeId": 0},
         }
