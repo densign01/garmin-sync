@@ -8,7 +8,7 @@ Public web app to plan strength workouts with AI, push to Garmin watch, track pr
 - Done: Phase 1-4, exercise mapping, security, DEN-6 mapping UI, review fixes, doc consolidation
 - Done: Rotated Gemini API key on Vercel (Apr 8)
 - Now: Custom rest periods and timed exercise support implemented locally; Garmin/watch validation pending
-- Next: Run a logged-in parse/preview test with real app environment values, then push one timed workout to Garmin for acceptance testing
+- Next: Sync the pushed workout to the watch and confirm timed intervals/custom rests appear correctly
 
 ## Active Plan (May 19)
 
@@ -18,8 +18,8 @@ Public web app to plan strength workouts with AI, push to Garmin watch, track pr
 - Confirmed scope: per-exercise custom rest, simple seconds/minutes timed exercises only, real Garmin validation before release.
 - Payload note: use the app's existing working Garmin constants as source of truth (`reps` = 10, `time` = 2, `lap.button` = 7); do not follow conflicting condition ID notes from older research without a golden-master payload.
 - Implemented locally: parser prompt/normalizer, Reps/Time/Distance preview controls, per-exercise rest seconds, timed Garmin payload builders, planned-vs-actual display, lint cleanup, changelog entry.
-- Verification completed: `npm run lint`, `NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key SUPABASE_SERVICE_ROLE_KEY=dummy-service-key GEMINI_API_KEY=dummy-gemini-key PYTHON_API_URL=http://localhost:8000 npm run build`, `.venv/bin/python -m py_compile src/*.py`, local `/workout/new` HTTP 200 via `npm run dev -- --webpack`, Chrome smoke test for the workout builder, and backend payload fixture check for reps/time/distance/custom-rest/zero-rest.
-- Validation still needed before release: logged-in parser preview using real environment values, then real Garmin push/watch test for a timed strength interval using `endCondition: time`.
+- Verification completed: `npm run lint`, `NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key SUPABASE_SERVICE_ROLE_KEY=dummy-service-key GEMINI_API_KEY=dummy-gemini-key PYTHON_API_URL=http://localhost:8000 npm run build`, `.venv/bin/python -m py_compile src/*.py`, local `/workout/new` HTTP 200 via `npm run dev -- --webpack`, Chrome smoke test for the workout builder, backend payload fixture check for reps/time/distance/custom-rest/zero-rest, Vercel preview parse test, and successful Garmin Connect push of `Timed Rest Test`.
+- Validation still needed before release: sync the pushed workout to the watch and confirm timed work intervals plus custom rest durations render correctly.
 
 ## Documentation Consolidation (Jan 23)
 - Updated CHECKLIST.md - Phase 3, 4, Deployment all marked complete (was stale)
