@@ -29,6 +29,7 @@ export function ActivitiesSection() {
 
   useEffect(() => {
     loadActivities()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadActivities() {
@@ -84,7 +85,7 @@ export function ActivitiesSection() {
       } else {
         setMessage(data.error || 'Sync failed')
       }
-    } catch (err) {
+    } catch {
       setMessage('Network error')
     } finally {
       setSyncing(false)
@@ -280,4 +281,3 @@ export function ActivitiesSection() {
     </div>
   )
 }
-

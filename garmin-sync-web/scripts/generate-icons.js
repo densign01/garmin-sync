@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Generates PWA icons using sharp
  * Run: node scripts/generate-icons.js

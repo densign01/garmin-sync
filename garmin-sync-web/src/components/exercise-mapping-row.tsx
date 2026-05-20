@@ -19,8 +19,10 @@ export type Exercise = {
   name: string
   /** Original exercise line from user input (preserves qualifiers like "Warm-up" or "Work") */
   original_input?: string
+  target_type?: 'reps' | 'time' | 'distance'
   sets: number
   reps: number
+  duration_seconds?: number
   weight_lbs?: number
   rest_seconds: number
   category?: string
@@ -40,21 +42,6 @@ export type ExerciseMappingRowProps = {
   /** Whether this is the last item in the list */
   isLast?: boolean
 }
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const REST_TIME_OPTIONS = [
-  { value: 0, label: 'None' },
-  { value: 30, label: '30s' },
-  { value: 45, label: '45s' },
-  { value: 60, label: '60s' },
-  { value: 75, label: '75s' },
-  { value: 90, label: '90s' },
-  { value: 120, label: '2m' },
-  { value: 180, label: '3m' },
-]
 
 // Build a flat list of exercises for the dropdown
 // Format: { key: "bench press", category: "BENCH_PRESS", garminName: "BARBELL_BENCH_PRESS", displayName: "Bench Press" }
@@ -77,8 +64,11 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Determine if this exercise uses distance
-  const mode: 'reps' | 'distance' = (exercise.distance_meters && exercise.distance_meters > 0) ? 'distance' : 'reps'
+  // Determine the target mode. Older saved workouts will not have target_type,
+  // so fall back from the fields they already store.
+  const mode: 'reps' | 'time' | 'distance' = exercise.target_type ||
+    ((exercise.distance_meters && exercise.distance_meters > 0) ? 'distance' :
+      (exercise.duration_seconds && exercise.duration_seconds > 0) ? 'time' : 'reps')
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -154,21 +144,51 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
   }
 
   const handleRestChange = (value: string) => {
-    const rest = parseInt(value, 10) || 60
-    onChange(index, { ...exercise, rest_seconds: rest })
+    const rest = value === '' ? 0 : parseInt(value, 10)
+    onChange(index, { ...exercise, rest_seconds: Math.max(0, Number.isNaN(rest) ? 0 : rest) })
   }
 
   const handleDistanceChange = (value: string) => {
     const yards = parseInt(value, 10) || 0
     const meters = Math.round(yards * 0.9144)
-    onChange(index, { ...exercise, distance_meters: meters })
+    onChange(index, { ...exercise, target_type: 'distance', distance_meters: meters, reps: 1, duration_seconds: undefined })
   }
 
-  const handleModeChange = (newMode: 'reps' | 'distance') => {
-    if (newMode === 'distance' && !exercise.distance_meters) {
-      onChange(index, { ...exercise, distance_meters: 37, reps: 1 })
-    } else if (newMode === 'reps' && exercise.distance_meters) {
-      onChange(index, { ...exercise, distance_meters: undefined, reps: exercise.reps || 10 })
+  const handleDurationChange = (value: string) => {
+    const seconds = parseInt(value, 10) || 1
+    onChange(index, {
+      ...exercise,
+      target_type: 'time',
+      duration_seconds: Math.max(1, seconds),
+      distance_meters: undefined,
+    })
+  }
+
+  const handleModeChange = (newMode: 'reps' | 'time' | 'distance') => {
+    if (newMode === 'distance') {
+      onChange(index, {
+        ...exercise,
+        target_type: 'distance',
+        distance_meters: exercise.distance_meters || 37,
+        duration_seconds: undefined,
+        reps: 1,
+      })
+    } else if (newMode === 'time') {
+      onChange(index, {
+        ...exercise,
+        target_type: 'time',
+        duration_seconds: exercise.duration_seconds || 30,
+        distance_meters: undefined,
+        reps: 1,
+      })
+    } else {
+      onChange(index, {
+        ...exercise,
+        target_type: 'reps',
+        distance_meters: undefined,
+        duration_seconds: undefined,
+        reps: exercise.reps || 10,
+      })
     }
   }
 
@@ -251,7 +271,24 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
             </span>
           </div>
 
-          {/* Sets, Reps/Distance, Weight row */}
+          {/* Target mode */}
+          <div className="inline-grid grid-cols-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs font-semibold">
+            {(['reps', 'time', 'distance'] as const).map((targetMode) => (
+              <button
+                key={targetMode}
+                type="button"
+                onClick={() => handleModeChange(targetMode)}
+                className={`px-2.5 py-1.5 rounded-md transition-colors capitalize ${
+                  mode === targetMode
+                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                {targetMode === 'distance' ? 'Dist' : targetMode}
+              </button>
+            ))}
+          </div>
+
           {/* Stats Row - wraps on mobile */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-2">
             {/* Sets */}
@@ -269,18 +306,11 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
               />
             </div>
 
-            {/* Reps / Distance */}
+            {/* Reps / Time / Distance */}
             <div className="relative group">
-              <div className="absolute -top-2 left-0 w-full flex justify-center z-10">
-                <button
-                  type="button"
-                  onClick={() => handleModeChange(mode === 'reps' ? 'distance' : 'reps')}
-                  className="px-1.5 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 uppercase tracking-wider transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded cursor-pointer"
-                  title="Click to toggle Reps/Distance"
-                >
-                  {mode === 'reps' ? 'Reps' : 'Dist'}
-                </button>
-              </div>
+              <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                {mode === 'distance' ? 'Yards' : mode === 'time' ? 'Sec' : 'Reps'}
+              </label>
 
               {mode === 'reps' ? (
                 <input
@@ -291,6 +321,16 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
                   onChange={(e) => handleRepsChange(e.target.value)}
                   className="w-16 sm:w-20 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
                   placeholder="Reps"
+                />
+              ) : mode === 'time' ? (
+                <input
+                  type="number"
+                  min="1"
+                  max="9999"
+                  value={exercise.duration_seconds ?? 30}
+                  onChange={(e) => handleDurationChange(e.target.value)}
+                  className="w-16 sm:w-20 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+                  placeholder="Sec"
                 />
               ) : (
                 <div className="relative">
@@ -326,19 +366,16 @@ export function ExerciseMappingRow({ exercise, index, onChange, isLast }: Exerci
             {/* Rest */}
             <div className="relative group">
               <label className="absolute -top-2 left-2 px-1 bg-white dark:bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                Rest
+                Rest Sec
               </label>
-              <select
+              <input
+                type="number"
+                min="0"
+                max="9999"
                 value={exercise.rest_seconds}
                 onChange={(e) => handleRestChange(e.target.value)}
-                className="w-16 sm:w-20 px-1 sm:px-2 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer text-sm text-center appearance-none"
-              >
-                {REST_TIME_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                className="w-20 sm:w-24 px-2 sm:px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm"
+              />
             </div>
           </div>
 

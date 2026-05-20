@@ -1,13 +1,25 @@
 # Session: garmin-sync
-Updated: 2026-01-24T15:03:48.035Z
+Updated: 2026-05-20
 
 ## Goal
 Public web app to plan strength workouts with AI, push to Garmin watch, track progress.
 
 ## State
 - Done: Phase 1-4, exercise mapping, security, DEN-6 mapping UI, review fixes, doc consolidation
-- Now: Ready for next feature
-- Next: DEN-7 (persist workout settings), Phase 5 (Gemini chatbot)
+- Done: Rotated Gemini API key on Vercel (Apr 8)
+- Now: Custom rest periods and timed exercise support implemented locally; Garmin/watch validation pending
+- Next: Run a logged-in parse/preview test with real app environment values, then push one timed workout to Garmin for acceptance testing
+
+## Active Plan (May 19)
+
+- Plan: `thoughts/shared/plans/2026-05-19-custom-rest-and-timed-exercises.md`
+- Request: Customer asked whether the generator can support custom rest periods and exercises performed for time.
+- Direction: Add arbitrary per-exercise rest editing and a third exercise target mode for timed work, alongside existing reps and distance modes.
+- Confirmed scope: per-exercise custom rest, simple seconds/minutes timed exercises only, real Garmin validation before release.
+- Payload note: use the app's existing working Garmin constants as source of truth (`reps` = 10, `time` = 2, `lap.button` = 7); do not follow conflicting condition ID notes from older research without a golden-master payload.
+- Implemented locally: parser prompt/normalizer, Reps/Time/Distance preview controls, per-exercise rest seconds, timed Garmin payload builders, planned-vs-actual display, lint cleanup, changelog entry.
+- Verification completed: `npm run lint`, `NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key SUPABASE_SERVICE_ROLE_KEY=dummy-service-key GEMINI_API_KEY=dummy-gemini-key PYTHON_API_URL=http://localhost:8000 npm run build`, `.venv/bin/python -m py_compile src/*.py`, local `/workout/new` HTTP 200 via `npm run dev -- --webpack`, Chrome smoke test for the workout builder, and backend payload fixture check for reps/time/distance/custom-rest/zero-rest.
+- Validation still needed before release: logged-in parser preview using real environment values, then real Garmin push/watch test for a timed strength interval using `endCondition: time`.
 
 ## Documentation Consolidation (Jan 23)
 - Updated CHECKLIST.md - Phase 3, 4, Deployment all marked complete (was stale)
@@ -34,7 +46,7 @@ Public web app to plan strength workouts with AI, push to Garmin watch, track pr
 - **Vercel**: https://garmin-sync.vercel.app (Next.js)
 - **Render**: https://garmin-sync-api.onrender.com (FastAPI)
 - **GitHub**: densign01/garmin-sync
-- **Latest commit**: 02e3f5d (fix: click-outside + mode sync)
+- **Latest commit**: 74f8321 (Merge PR #27 - exercise qualifiers)
 
 ## Recent Features (Jan 21 - DEN-6)
 1. **Two-column mapping UI**: Input → Garmin exercise mapping
@@ -69,7 +81,7 @@ Public web app to plan strength workouts with AI, push to Garmin watch, track pr
 5. **Mapping UI**: Two-column layout with searchable dropdown (cmdk) and editable fields
 
 ## Working Set
-- Project: `/Users/densign/Documents/Coding-Projects/claude-cloud/garmin-sync/`
+- Project: `/Users/densign/Documents/Coding-Projects/garmin-sync/`
 - Branch: `master`
 - Key files:
   - `src/main.py` (Render - encryption, CORS, auth)

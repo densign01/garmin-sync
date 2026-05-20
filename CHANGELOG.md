@@ -5,6 +5,10 @@ All notable changes to Garmin Sync.
 ## [Unreleased]
 
 ### Added
+- Custom rest periods and timed exercise targets in the workout generator
+  - Per-exercise rest seconds can be edited directly in preview
+  - Exercise target mode now supports Reps, Time, and Distance
+  - Timed exercises like planks, wall sits, and battle ropes store `duration_seconds`
 - Persist workout settings to user profile (#3)
   - Rest times and unilateral mode saved to database
   - Auto-save on change (1000ms debounce)
