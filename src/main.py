@@ -5,7 +5,7 @@ from pathlib import Path
 import garth
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -45,7 +45,13 @@ try:
 except Exception as e:
     raise RuntimeError(f"Invalid GARMIN_ENCRYPTION_KEY format: {e}. Generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"")
 
+# Local single-user mode keeps one Garmin session in process memory and
+# serves the legacy static UI. Never enable it on a shared deployment: the
+# endpoints it adds use that session without any credentials.
+LOCAL_MODE = os.environ.get("GARMIN_LOCAL_MODE") == "1"
+
 app = FastAPI(title="Garmin Sync", description="Sync strength workouts with Garmin Connect")
+local_router = APIRouter()
 
 # Attach rate limiter to app state (required by slowapi)
 app.state.limiter = limiter
@@ -104,17 +110,26 @@ def decrypt_tokens(encrypted: str) -> str:
     return f.decrypt(encrypted.encode()).decode()
 
 
+def client_from_tokens(encrypted: str) -> garth.Client:
+    """Build a Garmin client scoped to one request from encrypted tokens."""
+    client = garth.Client()
+    client.loads(decrypt_tokens(encrypted))
+    return client
+
+
 @app.get("/")
 async def root():
-    """Serve the frontend."""
-    return FileResponse(Path(__file__).parent.parent / "static" / "index.html")
+    """Serve the legacy UI in local mode, otherwise a health response."""
+    if LOCAL_MODE:
+        return FileResponse(Path(__file__).parent.parent / "static" / "index.html")
+    return {"status": "ok"}
 
 
-# Mount static files
-app.mount("/static", StaticFiles(directory=Path(__file__).parent.parent / "static"), name="static")
+if LOCAL_MODE:
+    app.mount("/static", StaticFiles(directory=Path(__file__).parent.parent / "static"), name="static")
 
 
-@app.get("/api/auth/status")
+@local_router.get("/api/auth/status")
 async def auth_status() -> AuthStatus:
     """Check if authenticated with Garmin Connect."""
     return AuthStatus(authenticated=garmin_client.is_authenticated)
@@ -129,10 +144,13 @@ async def login(request: Request, login_request: LoginRequest) -> LoginResponse:
     to prevent brute force attacks.
     """
     try:
-        garth.login(login_request.email, login_request.password)
-        tokens_str = garth.client.dumps()
+        client = garth.Client()
+        client.login(login_request.email, login_request.password)
+        tokens_str = client.dumps()
         encrypted = encrypt_tokens(tokens_str)
-        garmin_client._authenticated = True
+        if LOCAL_MODE:
+            garth.client.loads(tokens_str)
+            garmin_client._authenticated = True
         return LoginResponse(authenticated=True, tokens_encrypted=encrypted)
     except Exception:
         raise HTTPException(status_code=401, detail="Login failed. Please check your credentials.")
@@ -151,11 +169,10 @@ class TokenRequest(BaseModel):
 async def list_activities_with_tokens(request: TokenRequest, limit: int = 20, activity_type: str | None = "strength_training") -> list[dict]:
     """List activities using provided encrypted tokens (for serverless deployment)."""
     try:
-        tokens_str = decrypt_tokens(request.tokens_encrypted)
-        garth.client.loads(tokens_str)
+        client = client_from_tokens(request.tokens_encrypted)
 
         # Fetch all activities, then filter client-side (Garmin doesn't accept activityType param)
-        activities = garth.connectapi(
+        activities = client.connectapi(
             f"/activitylist-service/activities/search/activities?limit={limit}",
         )
 
@@ -178,14 +195,13 @@ async def list_activities_with_tokens(request: TokenRequest, limit: int = 20, ac
 async def export_activity_with_tokens(activity_id: int, request: TokenRequest) -> dict:
     """Export activity data using provided encrypted tokens."""
     try:
-        tokens_str = decrypt_tokens(request.tokens_encrypted)
-        garth.client.loads(tokens_str)
+        client = client_from_tokens(request.tokens_encrypted)
 
         # Get activity details
-        details = garth.connectapi(f"/activity-service/activity/{activity_id}")
+        details = client.connectapi(f"/activity-service/activity/{activity_id}")
 
         # Get exercise data
-        exercises_response = garth.connectapi(
+        exercises_response = client.connectapi(
             f"/activity-service/activity/{activity_id}/exerciseSets"
         )
 
@@ -249,12 +265,10 @@ async def export_activity_with_tokens(activity_id: int, request: TokenRequest) -
 async def push_workout_with_tokens(request: PushWorkoutRequest) -> dict:
     """Push workout using provided encrypted tokens."""
     try:
-        # Decrypt and load tokens
-        tokens_str = decrypt_tokens(request.tokens_encrypted)
-        garth.client.loads(tokens_str)
+        client = client_from_tokens(request.tokens_encrypted)
 
         # Push workout
-        result = garth.connectapi(
+        result = client.connectapi(
             "/workout-service/workout",
             method="POST",
             json=request.workout,
@@ -275,7 +289,7 @@ async def get_exercises() -> dict[str, list[str]]:
     return EXERCISE_CATEGORIES
 
 
-@app.post("/api/workouts")
+@local_router.post("/api/workouts")
 async def create_workout(workout: WorkoutInput) -> dict:
     """Create a new workout in Garmin Connect."""
     if not garmin_client.is_authenticated:
@@ -294,7 +308,7 @@ async def create_workout(workout: WorkoutInput) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/workouts")
+@local_router.get("/api/workouts")
 async def list_workouts(limit: int = 20) -> list[dict]:
     """List workouts from Garmin Connect."""
     if not garmin_client.is_authenticated:
@@ -306,7 +320,7 @@ async def list_workouts(limit: int = 20) -> list[dict]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/activities")
+@local_router.get("/api/activities")
 async def list_activities(limit: int = 20, activity_type: str | None = "strength_training") -> list[dict]:
     """List completed activities, optionally filtered by type."""
     if not garmin_client.is_authenticated:
@@ -318,7 +332,7 @@ async def list_activities(limit: int = 20, activity_type: str | None = "strength
         raise HTTPException(status_code=500, detail=f"Error in request: {e}")
 
 
-@app.get("/api/activities/{activity_id}")
+@local_router.get("/api/activities/{activity_id}")
 async def get_activity(activity_id: int) -> CompletedActivity:
     """Get details of a completed activity including exercise data."""
     if not garmin_client.is_authenticated:
@@ -353,7 +367,7 @@ async def get_activity(activity_id: int) -> CompletedActivity:
 
 
 
-@app.get("/api/activities/{activity_id}/export")
+@local_router.get("/api/activities/{activity_id}/export")
 async def export_activity(activity_id: int) -> dict:
     """Export activity data for Gemini analysis."""
     if not garmin_client.is_authenticated:
@@ -425,6 +439,10 @@ async def export_activity(activity_id: int) -> dict:
         return export
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+if LOCAL_MODE:
+    app.include_router(local_router)
 
 
 if __name__ == "__main__":
