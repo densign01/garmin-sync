@@ -1,6 +1,6 @@
 # Custom Rest Periods and Timed Exercises Plan
 
-**Overall Progress:** `90%`
+**Overall Progress:** `100%`
 
 ## TLDR
 
@@ -99,17 +99,19 @@ Add support for user-entered rest periods and timed exercises in the workout gen
   - [x] 🟩 Verify backend Garmin payload shape for reps, timed intervals, lap-button distance work, custom rest, and zero-rest.
   - [ ] 🟥 Test parse and preview manually with reps, custom rest, timed, and distance examples.
 
-- [ ] 🟥 **Step 9: Validate With Garmin**
+- [x] 🟩 **Step 9: Validate With Garmin**
   - [ ] 🟥 If possible, manually create a timed strength workout in Garmin Connect Web and compare its payload to the app payload.
   - [x] 🟩 Push one timed workout to Garmin Connect using a real Garmin account.
-  - [ ] 🟥 Confirm the watch shows a timed work interval, not fake reps.
-  - [ ] 🟥 Confirm custom rest appears correctly between sets.
+  - [x] 🟩 Confirm the watch shows a timed work interval, not fake reps.
+  - [x] 🟩 Confirm custom rest appears correctly between sets.
   - [ ] 🟥 Sync the completed workout back and verify duration displays correctly.
 
-- [ ] 🟨 **Step 10: Document and Release**
+- [x] 🟩 **Step 10: Document and Release**
   - [x] 🟩 Update `CHANGELOG.md`.
   - [ ] 🟥 Update user-facing docs if the input examples change.
   - [x] 🟩 Update the continuity ledger after implementation and verification.
+  - [x] 🟩 Merge PR #38 and deploy to production.
+  - [x] 🟩 Reply to Tarn letting her know the feature is live and asking for feedback.
 
 ## Suggested Test Inputs
 
